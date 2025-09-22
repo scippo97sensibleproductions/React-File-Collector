@@ -1,9 +1,9 @@
 [package]
-name = "filecollectorreact"
+name = "file_collector_react"
 version = "1.0.0"
 description = "A Tauri application for collecting and composing file contents for LLM prompts."
 authors = ["Scippo97 Sensible Productions"]
-edition = "2021"
+edition = "2024"
 
 [lib]
 name = "filecollectorreact_lib"

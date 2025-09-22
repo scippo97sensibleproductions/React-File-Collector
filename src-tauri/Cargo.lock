@@ -1036,7 +1036,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "filecollectorreact"
+name = "file_collector_react"
 version = "1.0.0"
 dependencies = [
  "serde",
