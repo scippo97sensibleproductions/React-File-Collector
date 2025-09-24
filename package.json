@@ -10,12 +10,12 @@
     "tauri": "tauri"
   },
   "dependencies": {
-    "@mantine/core": "^8.3.1",
-    "@mantine/hooks": "^8.3.1",
-    "@mantine/notifications": "^8.3.1",
+    "@mantine/core": "^8.3.2",
+    "@mantine/hooks": "^8.3.2",
+    "@mantine/notifications": "^8.3.2",
     "@tabler/icons-react": "^3.35.0",
-    "@tanstack/react-router": "^1.131.48",
-    "@tanstack/react-router-devtools": "^1.131.48",
+    "@tanstack/react-router": "^1.132.2",
+    "@tanstack/react-router-devtools": "^1.132.2",
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-clipboard-manager": "^2.3.0",
     "@tauri-apps/plugin-dialog": "^2.4.0",
@@ -24,10 +24,12 @@
     "prismjs": "^1.30.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
-    "react-window": "^2.1.1"
+    "react-markdown": "^10.1.0",
+    "react-window": "^2.1.1",
+    "remark-gfm": "^4.0.1"
   },
   "devDependencies": {
-    "@tanstack/router-plugin": "^1.131.48",
+    "@tanstack/router-plugin": "^1.132.2",
     "@tauri-apps/cli": "^2",
     "@types/prismjs": "^1.26.5",
     "@types/react": "^19.1.13",
@@ -39,6 +41,6 @@
     "postcss-preset-mantine": "^1.18.0",
     "postcss-simple-vars": "^7.0.1",
     "typescript": "~5.9.2",
-    "vite": "^7.1.6"
+    "vite": "^7.1.7"
   }
 }

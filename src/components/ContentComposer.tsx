@@ -9,9 +9,14 @@ import {
     Textarea,
     Title,
     Tooltip,
+    Tabs,
+    ScrollArea,
+    Typography,
 } from '@mantine/core';
 import { IconCopy, IconRefresh, IconTrash, IconX } from '@tabler/icons-react';
 import { memo, useEffect, useState } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { SelectedFileList } from './SelectedFileList';
 import type { FileInfo } from "../models/FileInfo.ts";
 
@@ -47,27 +52,23 @@ export const ContentComposer = memo(({
                                          totalTokens
                                      }: ContentComposerProps) => {
     const hasFiles = files.length > 0;
-    // Local state to manage the textarea's value instantly.
     const [inputValue, setInputValue] = useState(userPrompt);
 
-    // Debounce the update to the parent component's state.
     useEffect(() => {
         const handler = setTimeout(() => {
             if (userPrompt !== inputValue) {
                 setUserPrompt(inputValue);
             }
-        }, 1000); // 1-second delay after user stops typing.
+        }, 1000);
 
         return () => {
             clearTimeout(handler);
         };
     }, [inputValue, userPrompt, setUserPrompt]);
 
-    // Sync local state if the parent's prop changes (e.g., from a "clear" button).
     useEffect(() => {
         setInputValue(userPrompt);
     }, [userPrompt]);
-
 
     return (
         <Paper withBorder shadow="sm" p="md" h="100%">
@@ -118,28 +119,58 @@ export const ContentComposer = memo(({
                     onUncheckItem={onUncheckItem}
                 />
 
-                <Textarea
-                    label="User Prompt"
-                    placeholder="Append a user prompt..."
-                    value={inputValue} // Bind to local state for responsiveness.
-                    onChange={(e) => setInputValue(e.currentTarget.value)} // Update local state on every keystroke.
-                    autosize
-                    minRows={3}
-                    maxRows={8}
-                    rightSection={
-                        inputValue ? (
+                <Stack gap={4}>
+                    <Group justify="space-between">
+                        <Text component="label" size="sm" fw={500} htmlFor="user-prompt-editor">
+                            User Prompt
+                        </Text>
+                        {inputValue ? (
                             <ActionIcon
                                 onClick={() => setInputValue('')}
                                 variant="transparent"
                                 c="dimmed"
-                                title="Clear prompt"
                                 aria-label="Clear prompt"
                             >
-                                <IconX size={16} />
+                                <IconX size={16}/>
                             </ActionIcon>
-                        ) : null
-                    }
-                />
+                        ) : null}
+                    </Group>
+                    <Tabs defaultValue="write" variant="outline">
+                        <Tabs.List>
+                            <Tabs.Tab value="write">Write</Tabs.Tab>
+                            <Tabs.Tab value="preview" disabled={!inputValue.trim()}>Preview</Tabs.Tab>
+                        </Tabs.List>
+                        <Tabs.Panel value="write" pt="xs">
+                            <Textarea
+                                id="user-prompt-editor"
+                                placeholder="Append a user prompt... Markdown is supported."
+                                value={inputValue}
+                                onChange={(e) => setInputValue(e.currentTarget.value)}
+                                autosize
+                                minRows={3}
+                                maxRows={8}
+                            />
+                        </Tabs.Panel>
+                        <Tabs.Panel value="preview" pt="xs">
+                            <ScrollArea
+                                mah="15rem"
+                                mih="5.25rem"
+                                type="auto"
+                                p="xs"
+                                style={{
+                                    border: '1px solid var(--mantine-color-default-border)',
+                                    borderRadius: 'var(--mantine-radius-sm)',
+                                }}
+                            >
+                                <Typography>
+                                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                        {inputValue.trim() ? inputValue : '*Nothing to preview*'}
+                                    </ReactMarkdown>
+                                </Typography>
+                            </ScrollArea>
+                        </Tabs.Panel>
+                    </Tabs>
+                </Stack>
             </Stack>
         </Paper>
     );
