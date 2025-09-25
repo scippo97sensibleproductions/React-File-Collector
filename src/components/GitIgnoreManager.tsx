@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import {
-    Container,
     Title,
     Text,
     Stack,
@@ -223,101 +222,99 @@ export const GitIgnoreManager = () => {
     }
 
     return (
-        <Container p={0} fluid>
-            <Stack gap="xl">
-                <Group justify="space-between">
-                    <Group>
-                        <ThemeIcon size="xl" variant="gradient" gradient={{ from: 'indigo', to: 'cyan' }}>
-                            <IconGitBranch style={{ width: rem(32), height: rem(32) }} />
-                        </ThemeIcon>
-                        <div>
-                            <Title order={3}>Gitignore Manager</Title>
-                            <Text c="dimmed">Manage global gitignore patterns for file collection.</Text>
-                        </div>
-                    </Group>
-                    <Button
-                        leftSection={<IconFileImport size={18} />}
-                        onClick={handleImportFile}
-                        variant="gradient"
-                        gradient={{ from: 'grape', to: 'violet' }}
-                    >
-                        Import .gitignore
-                    </Button>
+        <Stack gap="xl" h="100%">
+            <Group justify="space-between">
+                <Group>
+                    <ThemeIcon size="xl" variant="gradient" gradient={{ from: 'indigo', to: 'cyan' }}>
+                        <IconGitBranch style={{ width: rem(32), height: rem(32) }} />
+                    </ThemeIcon>
+                    <div>
+                        <Title order={3}>Gitignore Manager</Title>
+                        <Text c="dimmed">Manage global gitignore patterns for file collection.</Text>
+                    </div>
                 </Group>
+                <Button
+                    leftSection={<IconFileImport size={18} />}
+                    onClick={handleImportFile}
+                    variant="gradient"
+                    gradient={{ from: 'grape', to: 'violet' }}
+                >
+                    Import .gitignore
+                </Button>
+            </Group>
 
-                <Paper shadow="sm" p="md" withBorder>
-                    <Stack gap="md" align="stretch" justify="flex-start">
-                        <TextInput
-                            placeholder="e.g., node_modules/"
-                            value={newPattern}
-                            onChange={(e) => setNewPattern(e.currentTarget.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && handleAddItem()}
-                            aria-label="New gitignore pattern"
-                        />
-                        <Button
-                            leftSection={<IconPlus size={18} />}
-                            onClick={handleAddItem}
-                            disabled={!newPattern.trim()}
-                        >
-                            Add Pattern
-                        </Button>
+            <Paper shadow="sm" p="md" withBorder>
+                <Stack gap="md" align="stretch" justify="flex-start">
+                    <TextInput
+                        placeholder="e.g., node_modules/"
+                        value={newPattern}
+                        onChange={(e) => setNewPattern(e.currentTarget.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleAddItem()}
+                        aria-label="New gitignore pattern"
+                    />
+                    <Button
+                        leftSection={<IconPlus size={18} />}
+                        onClick={handleAddItem}
+                        disabled={!newPattern.trim()}
+                    >
+                        Add Pattern
+                    </Button>
+                </Stack>
+            </Paper>
+
+            <Paper shadow="sm" withBorder style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+                <ScrollArea style={{ flex: 1 }}>
+                    <Stack p="xs" gap="xs">
+                        {items.length > 0 ? (
+                            items.map((item, index) => (
+                                <Card key={index} p="xs" radius="sm" withBorder>
+                                    {editingState?.index === index ? (
+                                        <Group justify="space-between">
+                                            <TextInput
+                                                value={editingState.value}
+                                                onChange={(e) => setEditingState({ ...editingState, value: e.currentTarget.value })}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter') handleUpdateItem();
+                                                    if (e.key === 'Escape') setEditingState(null);
+                                                }}
+                                                autoFocus
+                                                style={{ flex: 1 }}
+                                            />
+                                            <Group gap="xs">
+                                                <Tooltip label="Save">
+                                                    <ActionIcon variant="light" color="green" onClick={handleUpdateItem}><IconCheck size={18} /></ActionIcon>
+                                                </Tooltip>
+                                                <Tooltip label="Cancel">
+                                                    <ActionIcon variant="light" color="gray" onClick={() => setEditingState(null)}><IconX size={18} /></ActionIcon>
+                                                </Tooltip>
+                                            </Group>
+                                        </Group>
+                                    ) : (
+                                        <Group justify="space-between">
+                                            <Text ff="monospace" fz="sm" truncate="end">{item.pattern}</Text>
+                                            <Group gap="xs">
+                                                <Tooltip label="Edit">
+                                                    <ActionIcon variant="subtle" color="blue" onClick={() => setEditingState({ index, value: item.pattern })}><IconPencil size={18} /></ActionIcon>
+                                                </Tooltip>
+                                                <Tooltip label="Delete">
+                                                    <ActionIcon variant="subtle" color="red" onClick={() => handleDeleteItem(index)}><IconTrash size={18} /></ActionIcon>
+                                                </Tooltip>
+                                            </Group>
+                                        </Group>
+                                    )}
+                                </Card>
+                            ))
+                        ) : (
+                            <Center p="xl" h="100%">
+                                <Text c="dimmed">No gitignore patterns found.</Text>
+                            </Center>
+                        )}
                     </Stack>
-                </Paper>
-
-                <Paper shadow="sm" withBorder style={{ flex: 1 }}>
-                    <ScrollArea.Autosize mah="calc(100vh - 420px)">
-                        <Stack p="xs" gap="xs">
-                            {items.length > 0 ? (
-                                items.map((item, index) => (
-                                    <Card key={index} p="xs" radius="sm" withBorder>
-                                        {editingState?.index === index ? (
-                                            <Group justify="space-between">
-                                                <TextInput
-                                                    value={editingState.value}
-                                                    onChange={(e) => setEditingState({ ...editingState, value: e.currentTarget.value })}
-                                                    onKeyDown={(e) => {
-                                                        if (e.key === 'Enter') handleUpdateItem();
-                                                        if (e.key === 'Escape') setEditingState(null);
-                                                    }}
-                                                    autoFocus
-                                                    style={{ flex: 1 }}
-                                                />
-                                                <Group gap="xs">
-                                                    <Tooltip label="Save">
-                                                        <ActionIcon variant="light" color="green" onClick={handleUpdateItem}><IconCheck size={18} /></ActionIcon>
-                                                    </Tooltip>
-                                                    <Tooltip label="Cancel">
-                                                        <ActionIcon variant="light" color="gray" onClick={() => setEditingState(null)}><IconX size={18} /></ActionIcon>
-                                                    </Tooltip>
-                                                </Group>
-                                            </Group>
-                                        ) : (
-                                            <Group justify="space-between">
-                                                <Text ff="monospace" fz="sm" truncate="end">{item.pattern}</Text>
-                                                <Group gap="xs">
-                                                    <Tooltip label="Edit">
-                                                        <ActionIcon variant="subtle" color="blue" onClick={() => setEditingState({ index, value: item.pattern })}><IconPencil size={18} /></ActionIcon>
-                                                    </Tooltip>
-                                                    <Tooltip label="Delete">
-                                                        <ActionIcon variant="subtle" color="red" onClick={() => handleDeleteItem(index)}><IconTrash size={18} /></ActionIcon>
-                                                    </Tooltip>
-                                                </Group>
-                                            </Group>
-                                        )}
-                                    </Card>
-                                ))
-                            ) : (
-                                <Center p="xl">
-                                    <Text c="dimmed">No gitignore patterns found.</Text>
-                                </Center>
-                            )}
-                        </Stack>
-                    </ScrollArea.Autosize>
-                    <Text c="dimmed" size="xs" ta="right" p="xs" style={{borderTop: `1px solid ${theme.colors.dark[4]}`}}>
-                        Total Patterns: {items.length}
-                    </Text>
-                </Paper>
-            </Stack>
-        </Container>
+                </ScrollArea>
+                <Text c="dimmed" size="xs" ta="right" p="xs" style={{ borderTop: `1px solid ${theme.colors.dark[4]}` }}>
+                    Total Patterns: {items.length}
+                </Text>
+            </Paper>
+        </Stack>
     );
 };

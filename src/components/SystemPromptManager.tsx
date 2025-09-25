@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import {
-    Container,
     Title,
     Text,
     Stack,
@@ -15,16 +14,14 @@ import {
     rem,
     ThemeIcon,
     Textarea,
-    Accordion,
     Center,
-    Tooltip
+    Tabs
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import {
     IconMessageChatbot,
     IconPlus,
     IconTrash,
-    IconPencil,
     IconCheck,
     IconX,
     IconAlertCircle,
@@ -40,14 +37,16 @@ import { createFileEnsuringPath } from "../helpers/FileSystemManager.ts";
 
 const PROMPTS_PATH = import.meta.env.VITE_SYSTEM_PROMPTS_PATH || 'FileCollector/system_prompts.json';
 const BASE_DIR = (Number(import.meta.env.VITE_FILE_BASE_PATH) || 21) as BaseDirectory;
+const NEW_PROMPT_ID = 'new-prompt';
 
 export const SystemPromptManager = () => {
     const [prompts, setPrompts] = useState<SystemPromptItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [newPromptName, setNewPromptName] = useState('');
-    const [newPromptContent, setNewPromptContent] = useState('');
-    const [editingPrompt, setEditingPrompt] = useState<SystemPromptItem | null>(null);
+    const [activeTab, setActiveTab] = useState<string>(NEW_PROMPT_ID);
+
+    const [draftName, setDraftName] = useState('');
+    const [draftContent, setDraftContent] = useState('');
 
     const loadPrompts = async () => {
         setLoading(true);
@@ -63,13 +62,17 @@ export const SystemPromptManager = () => {
                 const content = await readTextFile(PROMPTS_PATH, { baseDir: BASE_DIR });
                 const data = content ? JSON.parse(content) : [];
                 if (!Array.isArray(data)) {
-                    throw new Error('Invalid data format in system_prompts.json. Expected an array.');
+                    const errorMessage = 'Invalid data format in system_prompts.json. Expected an array.';
+                    setError(`Failed to load or parse system_prompts.json: ${errorMessage}`);
+                    setPrompts([]);
+                    return;
                 }
                 setPrompts(data);
             }
         } catch (err) {
             const errorMessage = err instanceof Error ? err.message : String(err);
             setError(`Failed to load or parse system_prompts.json: ${errorMessage}`);
+            setPrompts([]);
         } finally {
             setLoading(false);
         }
@@ -90,151 +93,165 @@ export const SystemPromptManager = () => {
         loadPrompts();
     }, []);
 
-    const handleAddPrompt = async () => {
-        if (!newPromptName.trim() || !newPromptContent.trim()) return;
+    useEffect(() => {
+        if (activeTab === NEW_PROMPT_ID) {
+            setDraftName('');
+            setDraftContent('');
+        } else {
+            const currentPrompt = prompts.find(p => p.id === activeTab);
+            if (currentPrompt) {
+                setDraftName(currentPrompt.name);
+                setDraftContent(currentPrompt.content);
+            } else {
+                setActiveTab(NEW_PROMPT_ID);
+            }
+        }
+    }, [activeTab, prompts]);
 
-        const newPrompt: SystemPromptItem = {
-            id: crypto.randomUUID(),
-            name: newPromptName.trim(),
-            content: newPromptContent.trim(),
-        };
 
-        await savePrompts([...prompts, newPrompt]);
-        notifications.show({
-            title: 'Prompt Added',
-            message: `Successfully added prompt "${newPrompt.name}".`,
-            color: 'green',
-            icon: <IconCheck />,
-        });
-        setNewPromptName('');
-        setNewPromptContent('');
+    const handleSavePrompt = async () => {
+        if (!draftName.trim() || !draftContent.trim()) return;
+
+        if (activeTab === NEW_PROMPT_ID) {
+            const newPrompt: SystemPromptItem = {
+                id: crypto.randomUUID(),
+                name: draftName.trim(),
+                content: draftContent.trim(),
+            };
+            const updatedPrompts = [...prompts, newPrompt];
+            await savePrompts(updatedPrompts);
+            notifications.show({
+                title: 'Prompt Added',
+                message: `Successfully added prompt "${newPrompt.name}".`,
+                color: 'green',
+                icon: <IconCheck />,
+            });
+            setActiveTab(newPrompt.id);
+        } else {
+            const updatedPrompts = prompts.map(p =>
+                p.id === activeTab
+                    ? { ...p, name: draftName.trim(), content: draftContent.trim() }
+                    : p
+            );
+            await savePrompts(updatedPrompts);
+            notifications.show({
+                title: 'Prompt Updated',
+                message: `Successfully updated "${draftName.trim()}".`,
+                color: 'teal',
+                icon: <IconDeviceFloppy />,
+            });
+        }
     };
 
     const handleDeletePrompt = async (idToDelete: string) => {
         const promptToDelete = prompts.find(p => p.id === idToDelete);
+        if (!promptToDelete) return;
+
         const updatedPrompts = prompts.filter((p) => p.id !== idToDelete);
+
+        if (activeTab === idToDelete) {
+            const currentIndex = prompts.findIndex(p => p.id === idToDelete);
+            const nextIndex = Math.max(0, currentIndex - 1);
+            const nextPrompt = prompts[nextIndex]
+            setActiveTab(updatedPrompts.length > 0 ? (nextPrompt?.id ?? updatedPrompts[0].id) : NEW_PROMPT_ID);
+        }
+
         await savePrompts(updatedPrompts);
         notifications.show({
             title: 'Prompt Removed',
-            message: `Successfully removed "${promptToDelete?.name}".`,
+            message: `Successfully removed "${promptToDelete.name}".`,
             color: 'red',
             icon: <IconTrash />,
         });
     };
 
-    const handleUpdatePrompt = async () => {
-        if (!editingPrompt || !editingPrompt.name.trim() || !editingPrompt.content.trim()) return;
-        const updatedPrompts = prompts.map(p => p.id === editingPrompt.id ? editingPrompt : p);
-        await savePrompts(updatedPrompts);
-        notifications.show({
-            title: 'Prompt Updated',
-            message: `Successfully updated "${editingPrompt.name}".`,
-            color: 'teal',
-            icon: <IconDeviceFloppy />,
-        });
-        setEditingPrompt(null);
+    const handleTabChange = (value: string | null) => {
+        if (value) {
+            setActiveTab(value);
+        }
     };
 
     if (loading) return <Center p="xl"><Loader /></Center>;
     if (error) return <Alert icon={<IconAlertCircle size="1rem" />} title="Error!" color="red">{error}</Alert>;
 
-    return (
-        <Container p={0} fluid>
-            <Stack gap="xl">
-                <Group>
-                    <ThemeIcon size="xl" variant="gradient" gradient={{ from: 'teal', to: 'lime', deg: 105 }}>
-                        <IconMessageChatbot style={{ width: rem(32), height: rem(32) }} />
-                    </ThemeIcon>
-                    <div>
-                        <Title order={3}>System Prompt Manager</Title>
-                        <Text c="dimmed">Create and manage reusable prompts for your tasks.</Text>
-                    </div>
-                </Group>
+    const isNewPrompt = activeTab === NEW_PROMPT_ID;
+    const currentPrompt = isNewPrompt ? null : prompts.find(p => p.id === activeTab);
+    const isDirty = currentPrompt
+        ? draftName !== currentPrompt.name || draftContent !== currentPrompt.content
+        : draftName.trim().length > 0 || draftContent.trim().length > 0;
+    const canSave = isDirty && draftName.trim().length > 0 && draftContent.trim().length > 0;
 
-                <Paper shadow="sm" p="md" withBorder>
-                    <Stack>
+    return (
+        <Stack gap="xl" h="100%">
+            <Group>
+                <ThemeIcon size="xl" variant="gradient" gradient={{ from: 'teal', to: 'lime', deg: 105 }}>
+                    <IconMessageChatbot style={{ width: rem(32), height: rem(32) }} />
+                </ThemeIcon>
+                <div>
+                    <Title order={3}>System Prompt Manager</Title>
+                    <Text c="dimmed">Create and manage reusable prompts for your tasks.</Text>
+                </div>
+            </Group>
+
+            <Tabs value={activeTab} onChange={handleTabChange} h="100%" style={{ display: 'flex', flexDirection: 'column' }}>
+                <ScrollArea type="auto" pb="xs">
+                    <Tabs.List style={{ flexWrap: 'nowrap' }}>
+                        <Tabs.Tab value={NEW_PROMPT_ID} leftSection={<IconPlus size={16} />}>
+                            New Prompt
+                        </Tabs.Tab>
+                        {prompts.map((prompt) => (
+                            <Tabs.Tab key={prompt.id} value={prompt.id}>
+                                <Group gap="xs" wrap="nowrap">
+                                    <Text truncate="end" maw={200}>{prompt.name}</Text>
+                                    <ActionIcon
+                                        size="xs"
+                                        variant="transparent"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleDeletePrompt(prompt.id)
+                                        }}
+                                    >
+                                        <IconX size={12} />
+                                    </ActionIcon>
+                                </Group>
+                            </Tabs.Tab>
+                        ))}
+                    </Tabs.List>
+                </ScrollArea>
+
+                <Paper
+                    shadow="sm"
+                    withBorder
+                    p="md"
+                    style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}
+                >
+                    <Stack h="calc(100vh - 310px)">
                         <TextInput
                             label="Prompt Name"
                             placeholder="e.g., C# Code Reviewer"
-                            value={newPromptName}
-                            onChange={(e) => setNewPromptName(e.currentTarget.value)}
+                            value={draftName}
+                            onChange={(e) => setDraftName(e.currentTarget.value)}
                         />
                         <Textarea
                             label="Prompt Content"
                             placeholder="You are a senior C# developer..."
-                            value={newPromptContent}
-                            onChange={(e) => setNewPromptContent(e.currentTarget.value)}
-                            autosize
-                            minRows={4}
+                            value={draftContent}
+                            onChange={(e) => setDraftContent(e.currentTarget.value)}
+                            style={{ flex: 1 }}
+                            styles={{ wrapper: { height: '100%' }, input: { height: '100%' } }}
                         />
-                        <Button
-                            leftSection={<IconPlus size={18} />}
-                            onClick={handleAddPrompt}
-                            disabled={!newPromptName.trim() || !newPromptContent.trim()}
-                            fullWidth
-                            mt="md"
-                        >
-                            Add New Prompt
-                        </Button>
+                        <Group justify="flex-end" mt="md">
+                            <Button
+                                leftSection={isNewPrompt ? <IconPlus size={18} /> : <IconDeviceFloppy size={18} />}
+                                onClick={handleSavePrompt}
+                                disabled={!canSave}
+                            >
+                                {isNewPrompt ? 'Add New Prompt' : 'Save Changes'}
+                            </Button>
+                        </Group>
                     </Stack>
                 </Paper>
-
-                <Paper shadow="sm" withBorder>
-                    <ScrollArea.Autosize mah="calc(100vh - 540px)">
-                        {prompts.length > 0 ? (
-                            <Accordion variant="separated" chevronPosition="left">
-                                {prompts.map((prompt) => (
-                                    <Accordion.Item key={prompt.id} value={prompt.id}>
-                                        {editingPrompt?.id === prompt.id ? (
-                                            <Stack p="md" gap="sm">
-                                                <TextInput
-                                                    label="Prompt Name"
-                                                    value={editingPrompt.name}
-                                                    onChange={(e) => setEditingPrompt({ ...editingPrompt, name: e.currentTarget.value })}
-                                                    autoFocus
-                                                />
-                                                <Textarea
-                                                    label="Prompt Content"
-                                                    value={editingPrompt.content}
-                                                    onChange={(e) => setEditingPrompt({ ...editingPrompt, content: e.currentTarget.value })}
-                                                    autosize minRows={5}
-                                                />
-                                                <Group justify="flex-end">
-                                                    <Button variant="default" onClick={() => setEditingPrompt(null)} leftSection={<IconX size={16}/>}>Cancel</Button>
-                                                    <Button color="green" onClick={handleUpdatePrompt} leftSection={<IconCheck size={16}/>}>Save</Button>
-                                                </Group>
-                                            </Stack>
-                                        ) : (
-                                            <>
-                                                <Accordion.Control>
-                                                    <Group justify="space-between">
-                                                        <Text fw={500}>{prompt.name}</Text>
-                                                        <Group gap="xs" onClick={(e) => e.stopPropagation()}>
-                                                            <Tooltip label="Edit">
-                                                                <ActionIcon variant="subtle" color="blue" onClick={() => setEditingPrompt(prompt)}><IconPencil size={18} /></ActionIcon>
-                                                            </Tooltip>
-                                                            <Tooltip label="Delete">
-                                                                <ActionIcon variant="subtle" color="red" onClick={() => handleDeletePrompt(prompt.id)}><IconTrash size={18} /></ActionIcon>
-                                                            </Tooltip>
-                                                        </Group>
-                                                    </Group>
-                                                </Accordion.Control>
-                                                <Accordion.Panel>
-                                                    <Text style={{ whiteSpace: 'pre-wrap' }} c="dimmed" fz="sm">{prompt.content}</Text>
-                                                </Accordion.Panel>
-                                            </>
-                                        )}
-                                    </Accordion.Item>
-                                ))}
-                            </Accordion>
-                        ) : (
-                            <Center p="xl">
-                                <Text c="dimmed">No system prompts found.</Text>
-                            </Center>
-                        )}
-                    </ScrollArea.Autosize>
-                </Paper>
-            </Stack>
-        </Container>
+            </Tabs>
+        </Stack>
     );
 };
