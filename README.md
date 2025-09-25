@@ -1,7 +1,91 @@
-# Tauri + React + Typescript
+# 📄 File Collector
 
-This template should help get you started developing with Tauri, React and Typescript in Vite.
+[![Build Status](https://github.com/your-username/file-collector/actions/workflows/build-windows.yml/badge.svg)](https://github.com/your-username/file-collector/actions/workflows/build-windows.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-## Recommended IDE Setup
+> A powerful desktop utility to streamline collecting, composing, and formatting file contents for Large Language Model (LLM) prompts.
 
-- [VS Code](https://code.visualstudio.com/) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
+File Collector is built to solve a common bottleneck in prompt engineering: manually copying and pasting code and text from multiple files. This utility provides a high-performance, native experience to let you focus on crafting the perfect prompt instead of juggling files.
+
+![File Collector Screenshot](_docs/screenshot.png)
+*(Note: Replace `_docs/screenshot.png` with an actual screenshot of the application.)*
+
+---
+
+### 🌟 Highlights
+
+-   **🗂️ Effortless File Selection:** Navigate your project with a fast, virtualized file tree and powerful full-text search.
+-   **⚙️ Smart Filtering:** Automatically honors a global, user-defined list of `.gitignore` patterns to hide irrelevant files.
+-   **💾 Context Persistence:** Save and load entire sets of selected files as a "context," perfect for switching between projects or tasks.
+-   **🤖 Reusable System Prompts:** Create, manage, and instantly prepend saved system prompts to your output.
+-   **📊 Real-time Token Estimation:** Instantly see the estimated token count for your entire composition as you add files and write your prompt.
+-   **📋 One-Click Copy:** A single click formats and copies the system prompt, all file contents, and your user prompt to the clipboard, ready for any LLM.
+
+### 🚀 Usage
+
+Using File Collector is a simple, three-step process:
+
+1.  **Select a Folder:** Open your project directory. The file tree will populate, automatically filtering out ignored files.
+2.  **Choose Your Files:** Use the file tree or the search panel to select the files you want to include in your context.
+3.  **Compose & Copy:** Select an optional system prompt, write your user prompt, and click "Copy All". The perfectly formatted prompt is now on your clipboard.
+
+### ⬇️ Installation
+
+You can download the latest version for your operating system from the **[GitHub Releases](https://github.com/your-username/file-collector/releases)** page.
+
+-   **Windows:** Download the `.msi` installer.
+-   **macOS:** Download the `.dmg` disk image.
+-   **Linux:** Download the `.deb` or `.AppImage` file.
+
+### 🛠️ Development Setup
+
+Interested in contributing? Great! Follow these steps to get a local development environment running.
+
+#### Prerequisites
+
+Ensure you have the necessary prerequisites for Tauri v2 development installed. Follow the official **[Tauri setup guide](https://v2.tauri.app/start/prerequisites/)** for your operating system. This includes:
+
+-   Rust and Cargo
+-   Node.js and npm
+-   Platform-specific build tools (e.g., Visual Studio C++ Build Tools on Windows, Xcode Command Line Tools on macOS).
+
+#### Running the App
+
+1.  **Clone the repository:**
+    ```sh
+    git clone https://github.com/your-username/file-collector.git
+    cd file-collector
+    ```
+
+2.  **Install frontend dependencies:**
+    ```sh
+    npm install
+    ```
+
+3.  **Run in development mode:**
+    This starts the Vite dev server and launches the Tauri app. Hot-reloading is enabled for both the frontend and Rust backend.
+    ```sh
+    npm run tauri dev
+    ```
+
+#### Building for Production
+
+To create a native executable for your platform, run the build command:
+
+```sh
+npm run tauri build
+```
+
+The installers and executables will be located in `src-tauri/target/release/bundle/`.
+
+### 💭 Feedback & Contributing
+
+This project is open source and contributions are welcome!
+
+-   **Found a bug?** Please [open an issue](https://github.com/your-username/file-collector/issues/new).
+-   **Have a feature idea?** We'd love to hear it! Feel free to [start a discussion](https://github.com/your-username/file-collector/discussions).
+-   **Want to contribute code?** Please fork the repository and submit a pull request.
+
+### 📜 License
+
+This project is licensed under the MIT License. See the `LICENSE` file for details.
