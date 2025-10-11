@@ -1,4 +1,8 @@
-(self as any).Prism = {
+interface PrismWorkerGlobalScope extends WorkerGlobalScope {
+    Prism: { disableWorkerMessageHandler: boolean };
+}
+
+(self as PrismWorkerGlobalScope).Prism = {
     disableWorkerMessageHandler: true,
 };
 

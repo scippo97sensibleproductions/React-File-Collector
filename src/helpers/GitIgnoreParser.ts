@@ -1,3 +1,6 @@
+import type { GitIgnoreItem } from "../models/GitIgnoreItem.ts";
+import type { ProcessedPattern } from "../models/ProcessedPattern.ts";
+
 const escapeRegexChars = (str: string): string =>
     str.replace(/[.+^${}()|[\]]/g, '\\$&');
 

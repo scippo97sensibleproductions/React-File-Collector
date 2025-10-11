@@ -1,4 +1,4 @@
-import { useState, useMemo, memo, useCallback } from 'react';
+import { useState } from 'react';
 import { Box, Checkbox, Group, Stack, Text, Title, Center } from '@mantine/core';
 import { List, type RowComponentProps } from 'react-window';
 import { IconCaretDownFilled, IconCaretRightFilled, IconFolderOff } from '@tabler/icons-react';
@@ -49,7 +49,7 @@ const collectFilePaths = (node: DefinedTreeNode): string[] => {
     return node.children.flatMap(collectFilePaths);
 };
 
-const NodeRow = memo(({ index, style, ariaAttributes, ...props }: RowComponentProps<TreeRowProps>) => {
+const NodeRow = ({ index, style, ariaAttributes, ...props }: RowComponentProps<TreeRowProps>) => {
     const { flatNodes, nodeCheckStates, expandedIds, toggleExpand, toggleCheck } = props;
     const { id, label, depth, isFolder, node } = flatNodes[index];
 
@@ -93,13 +93,13 @@ const NodeRow = memo(({ index, style, ariaAttributes, ...props }: RowComponentPr
             </Group>
         </Box>
     );
-});
+};
 
 export const VirtualizedFileTree = ({ data, checkedItems, onNodeToggle }: VirtualizedFileTreeProps) => {
     const [expandedIds, setExpandedIds] = useState(new Set<string>());
     const { ref: containerRef } = useElementSize();
 
-    const toggleExpand = useCallback((id: string) => {
+    const toggleExpand = (id: string) => {
         setExpandedIds(currentIds => {
             const newIds = new Set(currentIds);
             if (newIds.has(id)) {
@@ -109,9 +109,9 @@ export const VirtualizedFileTree = ({ data, checkedItems, onNodeToggle }: Virtua
             }
             return newIds;
         });
-    }, []);
+    };
 
-    const nodeCheckStates = useMemo(() => {
+    const nodeCheckStates = (() => {
         const states = new Map<string, CheckState>();
         const checkedSet = new Set(checkedItems);
 
@@ -143,17 +143,17 @@ export const VirtualizedFileTree = ({ data, checkedItems, onNodeToggle }: Virtua
 
         traverse(data);
         return states;
-    }, [data, checkedItems]);
+    })();
 
-    const flatNodes = useMemo(() => flattenTree(data, expandedIds), [data, expandedIds]);
+    const flatNodes = flattenTree(data, expandedIds);
 
-    const rowProps = useMemo(() => ({
+    const rowProps = {
         flatNodes,
         nodeCheckStates,
         expandedIds,
         toggleExpand,
         toggleCheck: onNodeToggle,
-    }), [flatNodes, nodeCheckStates, expandedIds, toggleExpand, onNodeToggle]);
+    };
 
     return (
         <Stack h="100%" gap="sm">

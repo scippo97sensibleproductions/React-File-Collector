@@ -14,11 +14,12 @@ import {
     Typography,
 } from '@mantine/core';
 import { IconCopy, IconRefresh, IconTrash, IconX } from '@tabler/icons-react';
-import { memo, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { SelectedFileList } from './SelectedFileList';
 import type { FileInfo } from "../models/FileInfo.ts";
+import type { SystemPromptItem } from "../models/SystemPromptItem.ts";
 
 interface ContentComposerProps {
     files: FileInfo[];
@@ -28,6 +29,7 @@ interface ContentComposerProps {
     selectedSystemPromptId: string | null;
     onFileSelect: (file: FileInfo | null) => void;
     onUncheckItem: (path: string) => void;
+    onUncheckGroup?: (paths: string[]) => void;
     onCopyAll: () => void;
     onReloadContent: () => void;
     onClearAll: () => void;
@@ -36,21 +38,22 @@ interface ContentComposerProps {
     totalTokens: number;
 }
 
-export const ContentComposer = memo(({
-                                         files,
-                                         systemPrompts,
-                                         selectedFile,
-                                         userPrompt,
-                                         selectedSystemPromptId,
-                                         onFileSelect,
-                                         onUncheckItem,
-                                         onCopyAll,
-                                         onReloadContent,
-                                         onClearAll,
-                                         setUserPrompt,
-                                         setSelectedSystemPromptId,
-                                         totalTokens
-                                     }: ContentComposerProps) => {
+export const ContentComposer = ({
+                                    files,
+                                    systemPrompts,
+                                    selectedFile,
+                                    userPrompt,
+                                    selectedSystemPromptId,
+                                    onFileSelect,
+                                    onUncheckItem,
+                                    onUncheckGroup,
+                                    onCopyAll,
+                                    onReloadContent,
+                                    onClearAll,
+                                    setUserPrompt,
+                                    setSelectedSystemPromptId,
+                                    totalTokens
+                                }: ContentComposerProps) => {
     const hasFiles = files.length > 0;
     const [inputValue, setInputValue] = useState(userPrompt);
 
@@ -117,6 +120,7 @@ export const ContentComposer = memo(({
                     selectedFile={selectedFile}
                     onFileSelect={onFileSelect}
                     onUncheckItem={onUncheckItem}
+                    onUncheckGroup={onUncheckGroup}
                 />
 
                 <Stack gap={4}>
@@ -174,4 +178,4 @@ export const ContentComposer = memo(({
             </Stack>
         </Paper>
     );
-});
+};

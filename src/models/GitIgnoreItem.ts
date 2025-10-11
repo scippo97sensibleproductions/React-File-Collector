@@ -1,3 +1,3 @@
-interface GitIgnoreItem {
+export interface GitIgnoreItem {
     pattern: string;
 }

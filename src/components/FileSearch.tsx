@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, type ReactNode } from 'react';
+import { useState, useEffect, type ReactNode, useTransition } from 'react';
 import {
     ActionIcon,
     Box,
@@ -55,23 +55,19 @@ const getTruncatedPath = (fullPath: string): string => {
 export function FileSearch({ allFiles, checkedItems, onCheckItem }: FileSearchProps) {
     const [searchQuery, setSearchQuery] = useState('');
     const [debouncedSearchQuery] = useDebouncedValue(searchQuery, 700);
-    const [groupedFiles, setGroupedFiles] = useState<FileGroup[]>([]);
-    const [isSearching, setIsSearching] = useState(false);
+    const [searchResults, setSearchResults] = useState<FileGroup[] | null>(null);
+    const [isSearching, startTransition] = useTransition();
     const [activeAccordionItems, setActiveAccordionItems] = useState<string[]>([]);
 
     useEffect(() => {
-        const query = debouncedSearchQuery.trim();
-        if (!query) {
-            setGroupedFiles([]);
-            setIsSearching(false);
-            setActiveAccordionItems([]);
-            return;
-        }
+        startTransition(() => {
+            const query = debouncedSearchQuery.trim();
+            if (!query) {
+                setSearchResults(null);
+                setActiveAccordionItems([]);
+                return;
+            }
 
-        setIsSearching(true);
-        setActiveAccordionItems([]);
-
-        const searchTimer = setTimeout(() => {
             const lowerCaseQuery = query.toLowerCase();
             const results = allFiles.filter(file =>
                 file.value.toLowerCase().includes(lowerCaseQuery)
@@ -94,19 +90,17 @@ export function FileSearch({ allFiles, checkedItems, onCheckItem }: FileSearchPr
             const sortedGroups = Object.values(groups).sort((a, b) => a.label.localeCompare(b.label));
             sortedGroups.forEach(group => group.files.sort((a, b) => a.label.localeCompare(b.label)));
 
-            setGroupedFiles(sortedGroups);
-            setIsSearching(false);
-        }, 50);
-
-        return () => clearTimeout(searchTimer);
-
+            setSearchResults(sortedGroups);
+            setActiveAccordionItems([]);
+        });
     }, [debouncedSearchQuery, allFiles]);
 
     const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         setSearchQuery(event.currentTarget.value);
     };
 
-    const checkedSet = useMemo(() => new Set(checkedItems), [checkedItems]);
+    const checkedSet = new Set(checkedItems);
+    const groupedFiles = searchResults ?? [];
 
     return (
         <Stack h="100%" gap="sm">

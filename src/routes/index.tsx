@@ -1,12 +1,14 @@
 import { Box } from "@mantine/core";
 import { createFileRoute } from '@tanstack/react-router';
 import { open } from '@tauri-apps/plugin-dialog';
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import { BaseDirectory, DirEntry, readDir, readTextFile } from "@tauri-apps/plugin-fs";
 import { join } from "@tauri-apps/api/path";
 import { useDisclosure } from "@mantine/hooks";
 import { checkIgnore, processPattern } from "../helpers/GitIgnoreParser.ts";
 import { FileManager } from "../components/FileManager.tsx";
+import type { GitIgnoreItem } from "../models/GitIgnoreItem.ts";
+import type { ProcessedPattern } from "../models/ProcessedPattern.ts";
 
 export const Route = createFileRoute('/')({
     component: Index,
@@ -29,7 +31,7 @@ export const getGitIgnoreItems = async (): Promise<GitIgnoreItem[]> => {
         const baseDir = (Number(import.meta.env.VITE_FILE_BASE_PATH) || 21) as BaseDirectory;
         const fileContents = await readTextFile(path, { baseDir });
         return JSON.parse(fileContents);
-    } catch (error) {
+    } catch {
         return [];
     }
 }
@@ -123,13 +125,13 @@ function Index() {
         }
     };
 
-    const handleReloadTree = useCallback(async () => {
+    const handleReloadTree = async () => {
         if (path) {
             await loadDirectoryTree(path);
         }
-    }, [path]);
+    };
 
-    const handleNodeToggle = useCallback((node: DefinedTreeNode) => {
+    const handleNodeToggle = (node: DefinedTreeNode) => {
         const pathsToToggle = collectFilePaths(node);
         if (pathsToToggle.length === 0) return;
 
@@ -147,7 +149,7 @@ function Index() {
             }
             return Array.from(newCheckedItemsSet);
         });
-    }, [checkedItems]);
+    };
 
     return (
         <Box h="100%">

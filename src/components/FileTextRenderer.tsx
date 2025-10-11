@@ -1,5 +1,5 @@
 import { Flex, LoadingOverlay } from "@mantine/core";
-import { useEffect, useState, useRef, useCallback, useMemo } from "react";
+import { useEffect, useState, useRef } from "react";
 import { BaseDirectory, readTextFile } from "@tauri-apps/plugin-fs";
 import { IconCheck } from '@tabler/icons-react';
 import { getLanguage } from "../helpers/fileTypeManager.ts";
@@ -11,6 +11,7 @@ import { FileViewer } from "./FileViewer.tsx";
 import { estimateTokens } from "../helpers/TokenCounter.ts";
 import { readTextFileWithDetectedEncoding } from "../helpers/EncodingManager.ts";
 import { useDebouncedValue } from "@mantine/hooks";
+import type { SystemPromptItem } from "../models/SystemPromptItem.ts";
 
 const PROMPTS_PATH = import.meta.env.VITE_SYSTEM_PROMPTS_PATH || 'FileCollector/system_prompts.json';
 const BASE_DIR = (Number(import.meta.env.VITE_FILE_BASE_PATH) || 21) as BaseDirectory;
@@ -38,7 +39,7 @@ export const FileTextRenderer = ({ data, uncheckItem, onClearAll }: FileTextRend
 
     const loadingTimerRef = useRef<number | null>(null);
 
-    const handleReloadContent = useCallback(() => setReloadNonce(n => n + 1), []);
+    const handleReloadContent = () => setReloadNonce(n => n + 1);
 
     useEffect(() => {
         const getSystemPrompts = async () => {
@@ -48,7 +49,7 @@ export const FileTextRenderer = ({ data, uncheckItem, onClearAll }: FileTextRend
                 if (Array.isArray(prompts)) {
                     setSystemPrompts(prompts);
                 }
-            } catch (e) {
+            } catch {
                 setSystemPrompts([]);
             }
         };
@@ -127,29 +128,26 @@ export const FileTextRenderer = ({ data, uncheckItem, onClearAll }: FileTextRend
                 clearTimeout(loadingTimerRef.current);
             }
         };
-    }, [data, reloadNonce]);
+    }, [data, reloadNonce, files.length, selectedFilePath]);
 
     const selectedFile = files.find(f => f.path === selectedFilePath) || null;
 
-    const handleFileSelect = useCallback((file: FileInfo | null) => {
+    const handleFileSelect = (file: FileInfo | null) => {
         setSelectedFilePath(file?.path ?? null);
-    }, []);
+    };
 
-    const fileTokens = useMemo(() =>
-        files.reduce((acc, file) => acc + (file.tokenCount || 0), 0), [files]);
+    const fileTokens = files.reduce((acc, file) => acc + (file.tokenCount || 0), 0);
 
-    const selectedPrompt = useMemo(() =>
-        systemPrompts.find(p => p.id === selectedSystemPromptId), [systemPrompts, selectedSystemPromptId]);
+    const selectedPrompt = systemPrompts.find(p => p.id === selectedSystemPromptId);
 
-    const systemPromptTokens = useMemo(() =>
-        selectedPrompt ? estimateTokens(selectedPrompt.content) : 0, [selectedPrompt]);
+    const systemPromptTokens = selectedPrompt ? estimateTokens(selectedPrompt.content) : 0;
 
     useEffect(() => {
         const userPromptTokens = estimateTokens(debouncedUserPrompt);
         setComposedTotalTokens(systemPromptTokens + userPromptTokens + fileTokens);
     }, [debouncedUserPrompt, fileTokens, systemPromptTokens]);
 
-    const handleCopyAll = useCallback(async () => {
+    const handleCopyAll = async () => {
         const filesToCopy = files.filter(file => !file.error);
         const systemPromptContent = selectedPrompt ? selectedPrompt.content : '';
 
@@ -189,14 +187,14 @@ export const FileTextRenderer = ({ data, uncheckItem, onClearAll }: FileTextRend
                 color: 'green',
                 icon: <IconCheck size={18} />,
             });
-        } catch (e) {
+        } catch {
             notifications.show({
                 title: 'Copy Failed',
                 message: 'Could not write content to the clipboard.',
                 color: 'red',
             });
         }
-    }, [files, selectedPrompt, userPrompt, systemPromptTokens, fileTokens]);
+    };
 
     return (
         <Flex gap="md" h="100%" pos="relative">
@@ -216,7 +214,11 @@ export const FileTextRenderer = ({ data, uncheckItem, onClearAll }: FileTextRend
                 setSelectedSystemPromptId={setSelectedSystemPromptId}
                 totalTokens={composedTotalTokens}
             />
-            <FileViewer selectedFile={selectedFile} isEmpty={data.length === 0} />
+            <FileViewer
+                key={selectedFile?.path ?? 'empty-viewer'}
+                selectedFile={selectedFile}
+                isEmpty={data.length === 0}
+            />
         </Flex>
     );
 };

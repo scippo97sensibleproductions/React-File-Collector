@@ -1,99 +1,143 @@
-import { ActionIcon, Box, NavLink, Text, Tooltip, useMantineColorScheme, useMantineTheme, rgba } from '@mantine/core';
-import { IconX } from '@tabler/icons-react';
-import { memo, useMemo } from 'react';
-import { List, type RowComponentProps } from 'react-window';
-import { useElementSize } from '@mantine/hooks';
-import { FileInfo } from "../models/FileInfo.ts";
+import {
+    ActionIcon,
+    Box,
+    NavLink,
+    Text,
+    Tooltip,
+    useMantineTheme,
+    rgba,
+    Accordion,
+    Group,
+    Badge,
+    Stack,
+    ScrollArea,
+    useMantineColorScheme,
+} from '@mantine/core';
+import { IconTrash, IconX } from '@tabler/icons-react';
+import type { FileInfo } from "../models/FileInfo.ts";
 import { FileIcon } from "./FileIcon.tsx";
+import { getGroupInfoForFile, type FileGroupInfo } from "../helpers/FileGroupManager.tsx";
 
 interface SelectedFileListProps {
     files: FileInfo[];
     selectedFile: FileInfo | null;
     onFileSelect: (file: FileInfo | null) => void;
     onUncheckItem: (path: string) => void;
+    onUncheckGroup?: (paths: string[]) => void;
 }
 
-interface FileRowProps {
+interface FileGroup {
+    groupInfo: FileGroupInfo;
     files: FileInfo[];
-    selectedFile: FileInfo | null;
-    onFileSelect: (file: FileInfo | null) => void;
-    onUncheckItem: (path: string) => void;
 }
 
-const FileRow = memo(({ index, style, ...props }: RowComponentProps<FileRowProps>) => {
+export const SelectedFileList = ({
+                                     files,
+                                     selectedFile,
+                                     onFileSelect,
+                                     onUncheckItem,
+                                     onUncheckGroup,
+                                 }: SelectedFileListProps) => {
     const theme = useMantineTheme();
     const { colorScheme } = useMantineColorScheme();
-    const { files, selectedFile, onFileSelect, onUncheckItem } = props;
-    const file = files[index];
 
-    if (!file) {
-        return null;
+    const groups: Record<string, { groupInfo: FileGroupInfo; files: FileInfo[] }> = {};
+
+    for (const file of files) {
+        const groupInfo = getGroupInfoForFile(file.path);
+        if (!groups[groupInfo.key]) {
+            groups[groupInfo.key] = { groupInfo, files: [] };
+        }
+        groups[groupInfo.key].files.push(file);
     }
 
-    return (
-        <Box style={{
-            ...style,
-            backgroundColor: file.error
-                ? (colorScheme === 'dark' ? rgba(theme.colors.red[9], 0.2) : theme.colors.red[0])
-                : undefined,
-        }}>
-            <NavLink
-                active={selectedFile?.path === file.path}
-                label={
-                    <Tooltip label={file.path} position="bottom-start">
-                        <Text truncate="end">{file.path.split(/[\\/]/).pop()}</Text>
-                    </Tooltip>
-                }
-                description={file.error ? 'Error reading file' : `~${(file.tokenCount ?? 0).toLocaleString()} tokens`}
-                color={file.error ? 'red' : 'blue'}
-                onClick={() => onFileSelect(selectedFile?.path === file.path ? null : file)}
-                leftSection={<FileIcon name={file.path} isFolder={false} expanded={false} />}
-                rightSection={
-                    <ActionIcon
-                        variant="transparent"
-                        c="dimmed"
-                        aria-label="uncheckFile"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onUncheckItem(file.path);
-                        }}
-                    >
-                        <IconX size={16} />
-                    </ActionIcon>
-                }
-            />
-        </Box>
-    );
-});
+    const groupedFiles: FileGroup[] = Object.values(groups).sort((a, b) => a.groupInfo.label.localeCompare(b.groupInfo.label));
 
-export const SelectedFileList = memo(({
-                                          files,
-                                          selectedFile,
-                                          onFileSelect,
-                                          onUncheckItem,
-                                      }: SelectedFileListProps) => {
-    const { ref, width, height } = useElementSize();
-
-    const rowProps = useMemo(() => ({
-        files,
-        selectedFile,
-        onFileSelect,
-        onUncheckItem,
-    }), [files, selectedFile, onFileSelect, onUncheckItem]);
+    if (files.length === 0) {
+        return (
+            <Box style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+                <Text size="sm" fw={500}>Selected Files (0)</Text>
+            </Box>
+        );
+    }
 
     return (
         <Box style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
             <Text size="sm" fw={500}>Selected Files ({files.length})</Text>
-            <Box ref={ref} style={{ flex: 1, minHeight: 0 }} mt="xs">
-                {height > 0 && width > 0 && files.length > 0 && (
-                    <List
-                        rowCount={files.length}
-                        rowHeight={52}
-                        rowComponent={FileRow}
-                        rowProps={rowProps}
-                    />
-                )}
-            </Box>
+            <ScrollArea style={{ flex: 1 }} mt="xs">
+                <Accordion multiple variant="separated" defaultValue={groupedFiles.map(g => g.groupInfo.key)}>
+                    {groupedFiles.map(({ groupInfo, files: groupFiles }) => (
+                        <Accordion.Item key={groupInfo.key} value={groupInfo.key}>
+                            <Accordion.Control>
+                                <Group justify="space-between" wrap="nowrap">
+                                    <Group gap="xs" style={{ overflow: 'hidden' }}>
+                                        {groupInfo.icon}
+                                        <Text size="sm" fw={500} truncate="end">{groupInfo.label}</Text>
+                                    </Group>
+                                    <Group gap="xs" wrap="nowrap">
+                                        <Badge color={groupInfo.color} variant="light">{groupFiles.length}</Badge>
+                                        {onUncheckGroup && (
+                                            <Tooltip label={`Remove all ${groupInfo.label} files`}>
+                                                <ActionIcon
+                                                    size="sm"
+                                                    variant="subtle"
+                                                    color="red"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        onUncheckGroup(groupFiles.map(f => f.path));
+                                                    }}
+                                                >
+                                                    <IconTrash size={16} />
+                                                </ActionIcon>
+                                            </Tooltip>
+                                        )}
+                                    </Group>
+                                </Group>
+                            </Accordion.Control>
+                            <Accordion.Panel>
+                                <Stack gap={0}>
+                                    {groupFiles.map((file) => (
+                                        <Box
+                                            key={file.path}
+                                            style={{
+                                                backgroundColor: file.error
+                                                    ? (colorScheme === 'dark' ? rgba(theme.colors.red[9], 0.2) : theme.colors.red[0])
+                                                    : undefined,
+                                            }}
+                                        >
+                                            <NavLink
+                                                active={selectedFile?.path === file.path}
+                                                label={
+                                                    <Tooltip label={file.path} position="bottom-start" withArrow>
+                                                        <Text truncate="end">{file.path.split(/[\\/]/).pop()}</Text>
+                                                    </Tooltip>
+                                                }
+                                                description={file.error ? 'Error reading file' : `~${(file.tokenCount ?? 0).toLocaleString()} tokens`}
+                                                color={file.error ? 'red' : theme.primaryColor}
+                                                onClick={() => onFileSelect(selectedFile?.path === file.path ? null : file)}
+                                                leftSection={<FileIcon name={file.path} isFolder={false} expanded={false} />}
+                                                rightSection={
+                                                    <ActionIcon
+                                                        variant="transparent"
+                                                        c="dimmed"
+                                                        aria-label="uncheckFile"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            onUncheckItem(file.path);
+                                                        }}
+                                                    >
+                                                        <IconX size={16} />
+                                                    </ActionIcon>
+                                                }
+                                            />
+                                        </Box>
+                                    ))}
+                                </Stack>
+                            </Accordion.Panel>
+                        </Accordion.Item>
+                    ))}
+                </Accordion>
+            </ScrollArea>
         </Box>
     );
-});
+};

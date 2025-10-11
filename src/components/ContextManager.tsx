@@ -82,7 +82,7 @@ export const ContextManager = ({ currentPath, selectedFilePaths, onLoadContext }
         const trimmedName = newContextName.trim();
         const existingContextIndex = allContexts.findIndex(c => c.rootPath === currentPath && c.name === trimmedName);
 
-        let updatedContexts = [...allContexts];
+        const updatedContexts = [...allContexts];
         let notificationMessage: string;
 
         if (existingContextIndex !== -1) {

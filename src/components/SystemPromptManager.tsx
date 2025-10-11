@@ -34,6 +34,7 @@ import {
     BaseDirectory,
 } from '@tauri-apps/plugin-fs';
 import { createFileEnsuringPath } from "../helpers/FileSystemManager.ts";
+import type { SystemPromptItem } from "../models/SystemPromptItem.ts";
 
 const PROMPTS_PATH = import.meta.env.VITE_SYSTEM_PROMPTS_PATH || 'FileCollector/system_prompts.json';
 const BASE_DIR = (Number(import.meta.env.VITE_FILE_BASE_PATH) || 21) as BaseDirectory;

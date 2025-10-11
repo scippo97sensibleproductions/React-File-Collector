@@ -12,7 +12,7 @@ import {
     useMantineTheme
 } from "@mantine/core";
 import { IconArchive, IconCheck, IconFiles, IconFolderOpen, IconRefresh, IconSearch } from "@tabler/icons-react";
-import { useMemo, useCallback, useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { FileSearch } from "./FileSearch.tsx";
 import { VirtualizedFileTree } from "./VirtualizedFileTree.tsx";
 import type { DefinedTreeNode } from "../routes";
@@ -28,6 +28,7 @@ import { FileViewer } from "./FileViewer.tsx";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { notifications } from "@mantine/notifications";
 import { PathDisplay } from "./PathDisplay.tsx";
+import type { SystemPromptItem } from "../models/SystemPromptItem.ts";
 
 const PROMPTS_PATH = import.meta.env.VITE_SYSTEM_PROMPTS_PATH || 'FileCollector/system_prompts.json';
 const BASE_DIR = (Number(import.meta.env.VITE_FILE_BASE_PATH) || 21) as BaseDirectory;
@@ -70,28 +71,31 @@ export const FileManager = ({
     const [composedTotalTokens, setComposedTotalTokens] = useState(0);
     const loadingTimerRef = useRef<number | null>(null);
 
-    const handleAddItem = useCallback((filePath: string) => {
+    const handleAddItem = (filePath: string) => {
         setCheckedItems(prevItems => Array.from(new Set(prevItems).add(filePath)));
-    }, [setCheckedItems]);
+    };
 
-    const handleRemoveItem = useCallback((filePath: string) => {
+    const handleRemoveItem = (filePath: string) => {
         setCheckedItems(prevItems => prevItems.filter(p => p !== filePath));
-    }, [setCheckedItems]);
+    };
 
-    const handleLoadContext = useCallback((pathsToLoad: string[]) => {
+    const handleRemoveGroupItems = (filePathsToRemove: string[]) => {
+        const pathsToRemoveSet = new Set(filePathsToRemove);
+        setCheckedItems(prevItems => prevItems.filter(path => !pathsToRemoveSet.has(path)));
+    };
+
+    const handleLoadContext = (pathsToLoad: string[]) => {
         setCheckedItems(pathsToLoad);
-    }, [setCheckedItems]);
+    };
 
-    const handleClearAll = useCallback(() => {
+    const handleClearAll = () => {
         setCheckedItems([]);
-    }, [setCheckedItems]);
+    };
 
-    const checkedFiles = useMemo(() => {
-        const allFilePaths = new Set(allFiles.map(file => file.value));
-        return checkedItems.filter(item => allFilePaths.has(item));
-    }, [checkedItems, allFiles]);
+    const allFilePaths = new Set(allFiles.map(file => file.value));
+    const checkedFiles = checkedItems.filter(item => allFilePaths.has(item));
 
-    const handleReloadContent = useCallback(() => setReloadNonce(n => n + 1), []);
+    const handleReloadContent = () => setReloadNonce(n => n + 1);
 
     useEffect(() => {
         const getSystemPrompts = async () => {
@@ -101,7 +105,7 @@ export const FileManager = ({
                 if (Array.isArray(prompts)) {
                     setSystemPrompts(prompts);
                 }
-            } catch (e) {
+            } catch {
                 setSystemPrompts([]);
             }
         };
@@ -180,28 +184,25 @@ export const FileManager = ({
                 clearTimeout(loadingTimerRef.current);
             }
         };
-    }, [checkedFiles, reloadNonce]);
+    }, [checkedFiles, reloadNonce, files.length, selectedFilePath]);
 
     const selectedFile = files.find(f => f.path === selectedFilePath) || null;
-    const handleFileSelect = useCallback((file: FileInfo | null) => {
+    const handleFileSelect = (file: FileInfo | null) => {
         setSelectedFilePath(file?.path ?? null);
-    }, []);
+    };
 
-    const fileTokens = useMemo(() =>
-        files.reduce((acc, file) => acc + (file.tokenCount || 0), 0), [files]);
+    const fileTokens = files.reduce((acc, file) => acc + (file.tokenCount || 0), 0);
 
-    const selectedPrompt = useMemo(() =>
-        systemPrompts.find(p => p.id === selectedSystemPromptId), [systemPrompts, selectedSystemPromptId]);
+    const selectedPrompt = systemPrompts.find(p => p.id === selectedSystemPromptId);
 
-    const systemPromptTokens = useMemo(() =>
-        selectedPrompt ? estimateTokens(selectedPrompt.content) : 0, [selectedPrompt]);
+    const systemPromptTokens = selectedPrompt ? estimateTokens(selectedPrompt.content) : 0;
 
     useEffect(() => {
         const userPromptTokens = estimateTokens(debouncedUserPrompt);
         setComposedTotalTokens(systemPromptTokens + userPromptTokens + fileTokens);
     }, [debouncedUserPrompt, fileTokens, systemPromptTokens]);
 
-    const handleCopyAll = useCallback(async () => {
+    const handleCopyAll = async () => {
         const filesToCopy = files.filter(file => !file.error);
         const systemPromptContent = selectedPrompt ? selectedPrompt.content : '';
 
@@ -241,14 +242,14 @@ export const FileManager = ({
                 color: 'green',
                 icon: <IconCheck size={18} />,
             });
-        } catch (e) {
+        } catch {
             notifications.show({
                 title: 'Copy Failed',
                 message: 'Could not write content to the clipboard.',
                 color: 'red',
             });
         }
-    }, [files, selectedPrompt, userPrompt, systemPromptTokens, fileTokens]);
+    };
 
     return (
         <Flex direction="column" h={{ base: 'auto', lg: 'calc(100vh - 100px)' }} gap="md">
@@ -344,6 +345,7 @@ export const FileManager = ({
                             selectedSystemPromptId={selectedSystemPromptId}
                             onFileSelect={handleFileSelect}
                             onUncheckItem={handleRemoveItem}
+                            onUncheckGroup={handleRemoveGroupItems}
                             onCopyAll={handleCopyAll}
                             onReloadContent={handleReloadContent}
                             onClearAll={handleClearAll}

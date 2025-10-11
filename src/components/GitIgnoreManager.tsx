@@ -33,6 +33,7 @@ import {
 import { exists, readTextFile, writeTextFile, BaseDirectory } from '@tauri-apps/plugin-fs';
 import { open as openDialog } from '@tauri-apps/plugin-dialog';
 import { createFileEnsuringPath } from "../helpers/FileSystemManager.ts";
+import type { GitIgnoreItem } from "../models/GitIgnoreItem.ts";
 
 const GITIGNORE_PATH = import.meta.env.VITE_GITIGNORE_PATH || 'FileCollector/gitignores.json';
 const BASE_DIR = (Number(import.meta.env.VITE_FILE_BASE_PATH) || 21) as BaseDirectory;
@@ -204,7 +205,7 @@ export const GitIgnoreManager = () => {
                 color: 'grape',
                 icon: <IconFileImport />,
             });
-        } catch (err) {
+        } catch {
             notifications.show({
                 title: 'Import Error',
                 message: 'An error occurred while importing the file.',

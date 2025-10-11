@@ -71,10 +71,6 @@ export const FileViewer = ({ selectedFile, isEmpty }: FileViewerProps) => {
         }
 
         if (!selectedFile || !isWorkerReady || !workerRef.current) {
-            if (!selectedFile) {
-                setHighlightedHtml(null);
-            }
-            setIsLoading(false);
             return;
         }
 
@@ -96,7 +92,7 @@ export const FileViewer = ({ selectedFile, isEmpty }: FileViewerProps) => {
                     language: selectedFile.language,
                     jobId: currentJobId
                 });
-            } catch (e) {
+            } catch {
                 if (currentJobId === `job-${jobCounterRef.current}`) {
                     if (loadingTimerRef.current) {
                         clearTimeout(loadingTimerRef.current);
