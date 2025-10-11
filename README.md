@@ -1,6 +1,6 @@
 # 📄 File Collector
 
-[![Build Status](https://github.com/your-username/file-collector/actions/workflows/build-windows.yml/badge.svg)](https://github.com/your-username/file-collector/actions/workflows/build-windows.yml)
+[![Build Status](https://github.com/scippo97sensibleproductions/file-collector/actions/workflows/build-windows.yml/badge.svg)](https://github.com/scippo97sensibleproductions/file-collector/actions/workflows/build-windows.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 > A powerful desktop utility to streamline collecting, composing, and formatting file contents for Large Language Model (LLM) prompts.
