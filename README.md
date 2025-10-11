@@ -7,8 +7,7 @@
 
 File Collector is built to solve a common bottleneck in prompt engineering: manually copying and pasting code and text from multiple files. This utility provides a high-performance, native experience to let you focus on crafting the perfect prompt instead of juggling files.
 
-![File Collector Screenshot](_docs/screenshot.png)
-*(Note: Replace `_docs/screenshot.png` with an actual screenshot of the application.)*
+![File Collector Screenshot](<img width="1920" height="1032" alt="image" src="https://github.com/user-attachments/assets/31668d2f-c5d9-4280-b59f-6ae32c708d52" />)
 
 ---
 
@@ -31,7 +30,7 @@ Using File Collector is a simple, three-step process:
 
 ### ⬇️ Installation
 
-You can download the latest version for your operating system from the **[GitHub Releases](https://github.com/your-username/file-collector/releases)** page.
+You can download the latest version for your operating system from the **[GitHub Releases](https://github.com/scippo97sensibleproductions/file-collector/releases)** page.
 
 -   **Windows:** Download the `.msi` installer.
 -   **macOS:** Download the `.dmg` disk image.
@@ -53,7 +52,7 @@ Ensure you have the necessary prerequisites for Tauri v2 development installed. 
 
 1.  **Clone the repository:**
     ```sh
-    git clone https://github.com/your-username/file-collector.git
+    git clone https://github.com/scippo97sensibleproductions/file-collector.git
     cd file-collector
     ```
 
