@@ -8,7 +8,8 @@
 
 File Collector is built to solve a common bottleneck in prompt engineering: manually copying and pasting code and text from multiple files. This utility provides a high-performance, native experience to let you focus on crafting the perfect prompt instead of juggling files.
 
-![File Collector Screenshot](<img width="1920" height="1032" alt="image" src="https://github.com/user-attachments/assets/31668d2f-c5d9-4280-b59f-6ae32c708d52" />)
+![image](https://github.com/user-attachments/assets/31668d2f-c5d9-4280-b59f-6ae32c708d52)
+
 
 ---
 
