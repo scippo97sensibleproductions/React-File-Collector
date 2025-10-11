@@ -1,6 +1,7 @@
 # 📄 File Collector
 
-[![Build Status](https://github.com/scippo97sensibleproductions/file-collector/actions/workflows/build-windows.yml/badge.svg)](https://github.com/scippo97sensibleproductions/file-collector/actions/workflows/build-windows.yml)
+[![Build Status](https://github.com/scippo97sensibleproductions/FileCollectorReact/actions/workflows/build-windows.yml/badge.svg)](https://github.com/scippo97sensibleproductions/FileCollectorReact/actions/workflows/build-windows.yml)
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 > A powerful desktop utility to streamline collecting, composing, and formatting file contents for Large Language Model (LLM) prompts.
@@ -30,7 +31,7 @@ Using File Collector is a simple, three-step process:
 
 ### ⬇️ Installation
 
-You can download the latest version for your operating system from the **[GitHub Releases](https://github.com/scippo97sensibleproductions/file-collector/releases)** page.
+You can download the latest version for your operating system from the **[GitHub Releases](https://github.com/scippo97sensibleproductions/FileCollectorReact/releases)** page.
 
 -   **Windows:** Download the `.msi` installer.
 -   **macOS:** Download the `.dmg` disk image.
@@ -81,8 +82,8 @@ The installers and executables will be located in `src-tauri/target/release/bund
 
 This project is open source and contributions are welcome!
 
--   **Found a bug?** Please [open an issue](https://github.com/your-username/file-collector/issues/new).
--   **Have a feature idea?** We'd love to hear it! Feel free to [start a discussion](https://github.com/your-username/file-collector/discussions).
+-   **Found a bug?** Please [open an issue](https://github.com/scippo97sensibleproductions/FileCollectorReact/issues/new).
+-   **Have a feature idea?** We'd love to hear it! Feel free to [start a discussion](https://github.com/scippo97sensibleproductions/FileCollectorReact/discussions).
 -   **Want to contribute code?** Please fork the repository and submit a pull request.
 
 ### 📜 License
