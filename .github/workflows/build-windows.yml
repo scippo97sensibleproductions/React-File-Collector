@@ -19,6 +19,9 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          # This token is required to push the version bump commit back to the repository.
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -67,6 +70,16 @@ jobs:
           echo "app_version=$newVersion" >> $env:GITHUB_OUTPUT
           echo "product_name=$productName" >> $env:GITHUB_OUTPUT
           echo "release_tag=app-v$newVersion" >> $env:GITHUB_OUTPUT
+
+      - name: Commit and Push Version Bump
+        if: github.event_name == 'push' && github.ref == 'refs/heads/release'
+        shell: pwsh
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git add package.json src-tauri/tauri.conf.json
+          git commit -m "build: Bump version to ${{ steps.package_info.outputs.app_version }}"
+          git push
 
       - name: Get Package Info for Test Runs
         id: test_package_info
