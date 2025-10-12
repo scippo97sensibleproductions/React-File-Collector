@@ -4,6 +4,10 @@ on:
   push:
     branches:
       - release
+  pull_request:
+    branches:
+      - release
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -35,6 +39,7 @@ jobs:
 
       - name: Bump Version and Get Package Info
         id: package_info
+        if: github.event_name == 'push' && github.ref == 'refs/heads/release'
         shell: pwsh
         run: |
           $packageJsonPath = "package.json"
@@ -53,50 +58,56 @@ jobs:
           
           Write-Host "Bumping version from $currentVersion to $newVersion"
           
-          # Update package.json
           (Get-Content $packageJsonPath -Raw) -replace $versionPattern, "`${1}${newVersion}`${3}" | Set-Content $packageJsonPath
           
-          # Update tauri.conf.json
           $tauriConfPath = "src-tauri\tauri.conf.json"
           (Get-Content $tauriConfPath -Raw) -replace $versionPattern, "`${1}${newVersion}`${3}" | Set-Content $tauriConfPath
 
-          # Set outputs for subsequent steps
           $productName = (Get-Content $tauriConfPath -Raw | ConvertFrom-Json).productName
           echo "app_version=$newVersion" >> $env:GITHUB_OUTPUT
           echo "product_name=$productName" >> $env:GITHUB_OUTPUT
+          echo "release_tag=app-v$newVersion" >> $env:GITHUB_OUTPUT
 
-      - name: Build Installers and Create Release
-        id: tauri_build
-        uses: tauri-apps/tauri-action@v0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tagName: app-v__VERSION__
-          releaseName: 'App v__VERSION__'
-          releaseBody: 'See the assets to download this version and install.'
-          releaseDraft: false
-          prerelease: false
+      - name: Get Package Info for Test Runs
+        id: test_package_info
+        if: github.event_name != 'push' || github.ref != 'refs/heads/release'
+        shell: pwsh
+        run: |
+          $packageJson = Get-Content -Raw ./package.json | ConvertFrom-Json
+          $tauriConf = Get-Content -Raw ./src-tauri/tauri.conf.json | ConvertFrom-Json
+          echo "app_version=$($packageJson.version)" >> $env:GITHUB_OUTPUT
+          echo "product_name=$($tauriConf.productName)" >> $env:GITHUB_OUTPUT
+          echo "release_tag=app-v$($packageJson.version)-test" >> $env:GITHUB_OUTPUT
+
+      - name: Build Application
+        run: npm run tauri build
 
       - name: Create Portable Executable Archive
         id: create_portable
         shell: pwsh
         run: |
-          $version = "${{ steps.package_info.outputs.app_version }}"
-          $productName = "${{ steps.package_info.outputs.product_name }}"
-          # Cargo package name is snake_case
+          $version = "${{ steps.package_info.outputs.app_version || steps.test_package_info.outputs.app_version }}"
+          $productName = "${{ steps.package_info.outputs.product_name || steps.test_package_info.outputs.product_name }}"
           $exeName = "file_collector_react.exe"
           $exePath = "src-tauri/target/release/$exeName"
-          $assetName = "$productName-Portable-v$version.zip"
+          $assetName = "$($productName.Replace(' ', ''))-Portable-v$version.zip"
           
           Compress-Archive -Path $exePath -DestinationPath $assetName -Force
 
           echo "asset_name=$assetName" >> $env:GITHUB_OUTPUT
           echo "asset_path=./$assetName" >> $env:GITHUB_OUTPUT
 
-      - name: Upload Portable Executable to Release
-        uses: actions/upload-release-asset@v1
+      - name: Create or Update GitHub Release
+        id: create_release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/release'
+        uses: softprops/action-gh-release@v2
         with:
-          upload_url: ${{ steps.tauri_build.outputs.upload_url }}
-          asset_path: ${{ steps.create_portable.outputs.asset_path }}
-          asset_name: ${{ steps.create_portable.outputs.asset_name }}
-          asset_content_type: application/zip
+          tag_name: ${{ steps.package_info.outputs.release_tag }}
+          name: "App v${{ steps.package_info.outputs.app_version }}"
+          body: "See the assets to download this version and install."
+          draft: false
+          prerelease: false
+          files: |
+            src-tauri/target/release/bundle/msi/*.msi
+            src-tauri/target/release/bundle/nsis/*-setup.exe
+            ${{ steps.create_portable.outputs.asset_path }}
