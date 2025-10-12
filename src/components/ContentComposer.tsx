@@ -13,7 +13,7 @@ import {
     ScrollArea,
     Typography,
 } from '@mantine/core';
-import { IconCopy, IconRefresh, IconTrash, IconX } from '@tabler/icons-react';
+import { IconCopy, IconEye, IconRefresh, IconTrash, IconX } from '@tabler/icons-react';
 import { useEffect, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -36,6 +36,7 @@ interface ContentComposerProps {
     setUserPrompt: (prompt: string) => void;
     setSelectedSystemPromptId: (id: string | null) => void;
     totalTokens: number;
+    onShowPreview: () => void;
 }
 
 export const ContentComposer = ({
@@ -52,7 +53,8 @@ export const ContentComposer = ({
                                     onClearAll,
                                     setUserPrompt,
                                     setSelectedSystemPromptId,
-                                    totalTokens
+                                    totalTokens,
+                                    onShowPreview
                                 }: ContentComposerProps) => {
     const hasFiles = files.length > 0;
     const [inputValue, setInputValue] = useState(userPrompt);
@@ -91,6 +93,17 @@ export const ContentComposer = ({
                             <ActionIcon variant="light" color="red" size="sm" onClick={onClearAll} disabled={!hasFiles}>
                                 <IconTrash size={16} />
                             </ActionIcon>
+                        </Tooltip>
+                        <Tooltip label="Show file preview">
+                            <Button
+                                size="compact-sm"
+                                variant="light"
+                                onClick={onShowPreview}
+                                leftSection={<IconEye size={14} />}
+                                disabled={!selectedFile}
+                            >
+                                Preview
+                            </Button>
                         </Tooltip>
                         <Tooltip label="Copy composed prompt to clipboard">
                             <Button

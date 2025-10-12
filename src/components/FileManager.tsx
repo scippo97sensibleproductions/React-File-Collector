@@ -69,6 +69,7 @@ export const FileManager = ({
     const [reloadNonce, setReloadNonce] = useState(0);
     const [debouncedUserPrompt] = useDebouncedValue(userPrompt, 1000);
     const [composedTotalTokens, setComposedTotalTokens] = useState(0);
+    const [isPreviewVisible, setIsPreviewVisible] = useState(false);
     const loadingTimerRef = useRef<number | null>(null);
 
     const handleAddItem = (filePath: string) => {
@@ -292,7 +293,7 @@ export const FileManager = ({
                 style={{ flex: 1, minHeight: 0 }}
                 direction={{ base: 'column', lg: 'row' }}
             >
-                <Box w={{ base: '100%', lg: 450 }} h={{ base: 'auto', lg: '100%' }}>
+                <Box w={{ base: '100%', lg: isPreviewVisible ? 450 : '50%' }} h={{ base: 'auto', lg: '100%' }}>
                     <Paper withBorder shadow="sm" p="md" h="100%" style={{ display: 'flex', flexDirection: 'column' }}>
                         <Tabs defaultValue="files" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
                             <Tabs.List>
@@ -336,7 +337,11 @@ export const FileManager = ({
 
                 <Flex gap="md" style={{ flex: 1, minWidth: 0, position: 'relative' }} direction={{ base: 'column', md: 'row' }}>
                     <LoadingOverlay visible={isProcessing} overlayProps={{ radius: 'sm', blur: 2 }} />
-                    <Box w={{ base: '100%', md: '45%' }} miw={{ md: 400 }} h={{ base: 'auto', md: '100%' }}>
+                    <Box
+                        w={{ base: '100%', md: isPreviewVisible ? '45%' : '100%' }}
+                        miw={{ md: isPreviewVisible ? 400 : undefined }}
+                        h={{ base: 'auto', md: '100%' }}
+                    >
                         <ContentComposer
                             files={files}
                             systemPrompts={systemPrompts}
@@ -352,11 +357,18 @@ export const FileManager = ({
                             setUserPrompt={setUserPrompt}
                             setSelectedSystemPromptId={setSelectedSystemPromptId}
                             totalTokens={composedTotalTokens}
+                            onShowPreview={() => setIsPreviewVisible(true)}
                         />
                     </Box>
-                    <Box style={{ flex: 1, minWidth: 0 }} h={{ base: 'auto', md: '100%' }}>
-                        <FileViewer selectedFile={selectedFile} isEmpty={checkedFiles.length === 0} />
-                    </Box>
+                    {isPreviewVisible && (
+                        <Box style={{ flex: 1, minWidth: 0 }} h={{ base: 'auto', md: '100%' }}>
+                            <FileViewer
+                                selectedFile={selectedFile}
+                                isEmpty={checkedFiles.length === 0}
+                                onClose={() => setIsPreviewVisible(false)}
+                            />
+                        </Box>
+                    )}
                 </Flex>
             </Flex>
         </Flex>

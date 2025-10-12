@@ -29,6 +29,7 @@ interface SelectedFileListProps {
 interface FileGroup {
     groupInfo: FileGroupInfo;
     files: FileInfo[];
+    totalTokens: number;
 }
 
 export const SelectedFileList = ({
@@ -41,17 +42,18 @@ export const SelectedFileList = ({
     const theme = useMantineTheme();
     const { colorScheme } = useMantineColorScheme();
 
-    const groups: Record<string, { groupInfo: FileGroupInfo; files: FileInfo[] }> = {};
+    const groups: Record<string, FileGroup> = {};
 
     for (const file of files) {
         const groupInfo = getGroupInfoForFile(file.path);
         if (!groups[groupInfo.key]) {
-            groups[groupInfo.key] = { groupInfo, files: [] };
+            groups[groupInfo.key] = { groupInfo, files: [], totalTokens: 0 };
         }
         groups[groupInfo.key].files.push(file);
+        groups[groupInfo.key].totalTokens += file.tokenCount ?? 0;
     }
 
-    const groupedFiles: FileGroup[] = Object.values(groups).sort((a, b) => a.groupInfo.label.localeCompare(b.groupInfo.label));
+    const groupedFiles: FileGroup[] = Object.values(groups).sort((a, b) => b.totalTokens - a.totalTokens);
 
     if (files.length === 0) {
         return (
@@ -66,7 +68,7 @@ export const SelectedFileList = ({
             <Text size="sm" fw={500}>Selected Files ({files.length})</Text>
             <ScrollArea style={{ flex: 1 }} mt="xs">
                 <Accordion multiple variant="separated" defaultValue={groupedFiles.map(g => g.groupInfo.key)}>
-                    {groupedFiles.map(({ groupInfo, files: groupFiles }) => (
+                    {groupedFiles.map(({ groupInfo, files: groupFiles, totalTokens }) => (
                         <Accordion.Item key={groupInfo.key} value={groupInfo.key}>
                             <Accordion.Control>
                                 <Group justify="space-between" wrap="nowrap">
@@ -74,7 +76,10 @@ export const SelectedFileList = ({
                                         {groupInfo.icon}
                                         <Text size="sm" fw={500} truncate="end">{groupInfo.label}</Text>
                                     </Group>
-                                    <Group gap="xs" wrap="nowrap">
+                                    <Group gap="xs" wrap="nowrap" align="center">
+                                        <Text size="xs" c="dimmed" ff="monospace">
+                                            ~{totalTokens.toLocaleString()}
+                                        </Text>
                                         <Badge color={groupInfo.color} variant="light">{groupFiles.length}</Badge>
                                         {onUncheckGroup && (
                                             <Tooltip label={`Remove all ${groupInfo.label} files`}>

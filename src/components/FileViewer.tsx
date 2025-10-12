@@ -6,9 +6,10 @@ import {
     ScrollArea,
     Stack,
     Text,
-    Loader, Box,
+    Loader,
+    Box, ActionIcon,
 } from '@mantine/core';
-import { IconAlertCircle, IconMessagePlus, IconInfoCircle } from '@tabler/icons-react';
+import { IconAlertCircle, IconMessagePlus, IconInfoCircle, IconX } from '@tabler/icons-react';
 import { useEffect, useState, useRef } from "react";
 import type { FileInfo } from "../models/FileInfo.ts";
 import 'prismjs/themes/prism-okaidia.css';
@@ -22,9 +23,10 @@ const LOADER_DELAY_MS = 300;
 interface FileViewerProps {
     selectedFile: FileInfo | null;
     isEmpty: boolean;
+    onClose: () => void;
 }
 
-export const FileViewer = ({ selectedFile, isEmpty }: FileViewerProps) => {
+export const FileViewer = ({ selectedFile, isEmpty, onClose }: FileViewerProps) => {
     const [highlightedHtml, setHighlightedHtml] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [isWorkerReady, setIsWorkerReady] = useState(false);
@@ -162,7 +164,17 @@ export const FileViewer = ({ selectedFile, isEmpty }: FileViewerProps) => {
             withBorder
             h="100%"
             p={!isEmpty && selectedFile ? 'md' : undefined}
+            style={{ position: 'relative' }}
         >
+            <ActionIcon
+                variant="subtle"
+                color="gray"
+                onClick={onClose}
+                style={{ position: 'absolute', top: 8, right: 8, zIndex: 2 }}
+                aria-label="Close preview"
+            >
+                <IconX size={16} />
+            </ActionIcon>
             {renderContent()}
         </Paper>
     );

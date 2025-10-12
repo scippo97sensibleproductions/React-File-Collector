@@ -1,4 +1,4 @@
-import { Flex, LoadingOverlay } from "@mantine/core";
+import { Flex, LoadingOverlay, Box } from "@mantine/core";
 import { useEffect, useState, useRef } from "react";
 import { BaseDirectory, readTextFile } from "@tauri-apps/plugin-fs";
 import { IconCheck } from '@tabler/icons-react';
@@ -36,6 +36,7 @@ export const FileTextRenderer = ({ data, uncheckItem, onClearAll }: FileTextRend
 
     const [debouncedUserPrompt] = useDebouncedValue(userPrompt, 1000);
     const [composedTotalTokens, setComposedTotalTokens] = useState(0);
+    const [isPreviewVisible, setIsPreviewVisible] = useState(false);
 
     const loadingTimerRef = useRef<number | null>(null);
 
@@ -199,26 +200,34 @@ export const FileTextRenderer = ({ data, uncheckItem, onClearAll }: FileTextRend
     return (
         <Flex gap="md" h="100%" pos="relative">
             <LoadingOverlay visible={isLoading} overlayProps={{ radius: 'sm', blur: 2 }} />
-            <ContentComposer
-                files={files}
-                systemPrompts={systemPrompts}
-                selectedFile={selectedFile}
-                userPrompt={userPrompt}
-                selectedSystemPromptId={selectedSystemPromptId}
-                onFileSelect={handleFileSelect}
-                onUncheckItem={uncheckItem}
-                onCopyAll={handleCopyAll}
-                onReloadContent={handleReloadContent}
-                onClearAll={onClearAll}
-                setUserPrompt={setUserPrompt}
-                setSelectedSystemPromptId={setSelectedSystemPromptId}
-                totalTokens={composedTotalTokens}
-            />
-            <FileViewer
-                key={selectedFile?.path ?? 'empty-viewer'}
-                selectedFile={selectedFile}
-                isEmpty={data.length === 0}
-            />
+            <Box w={isPreviewVisible ? '45%' : '100%'} miw={isPreviewVisible ? 400 : undefined}>
+                <ContentComposer
+                    files={files}
+                    systemPrompts={systemPrompts}
+                    selectedFile={selectedFile}
+                    userPrompt={userPrompt}
+                    selectedSystemPromptId={selectedSystemPromptId}
+                    onFileSelect={handleFileSelect}
+                    onUncheckItem={uncheckItem}
+                    onCopyAll={handleCopyAll}
+                    onReloadContent={handleReloadContent}
+                    onClearAll={onClearAll}
+                    setUserPrompt={setUserPrompt}
+                    setSelectedSystemPromptId={setSelectedSystemPromptId}
+                    totalTokens={composedTotalTokens}
+                    onShowPreview={() => setIsPreviewVisible(true)}
+                />
+            </Box>
+            {isPreviewVisible && (
+                <Box style={{ flex: 1, minWidth: 0 }}>
+                    <FileViewer
+                        key={selectedFile?.path ?? 'empty-viewer'}
+                        selectedFile={selectedFile}
+                        isEmpty={data.length === 0}
+                        onClose={() => setIsPreviewVisible(false)}
+                    />
+                </Box>
+            )}
         </Flex>
     );
 };
