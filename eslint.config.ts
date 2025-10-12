@@ -6,7 +6,7 @@ import reactHooks from "eslint-plugin-react-hooks";
 import globals from "globals";
 import { type Linter } from "eslint";
 
-const reactConfig: Linter.FlatConfig = {
+const reactConfig: Linter.Config = {
     files: ["src/**/*.{ts,tsx}"],
     ...react.configs.flat.recommended,
     plugins: {
