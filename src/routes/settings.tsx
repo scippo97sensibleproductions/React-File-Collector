@@ -1,9 +1,10 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { Tabs, useMantineTheme } from "@mantine/core";
-import { IconBrandGit, IconSettings, IconMessageChatbot } from "@tabler/icons-react";
+import { IconBrandGit, IconSettings, IconMessageChatbot, IconCloudDownload } from "@tabler/icons-react";
 import { GitIgnoreManager } from "../components/GitIgnoreManager.tsx";
 import { SystemPromptManager } from "../components/SystemPromptManager.tsx";
 import { useMediaQuery } from "@mantine/hooks";
+import { UpdateManager } from "../components/UpdateManager.tsx";
 
 export const Route = createFileRoute('/settings')({
     component: RouteComponent,
@@ -37,6 +38,9 @@ function RouteComponent() {
                 <Tabs.Tab value="systemPrompts" leftSection={<IconMessageChatbot size={20} />}>
                     System Prompts
                 </Tabs.Tab>
+                <Tabs.Tab value="updates" leftSection={<IconCloudDownload size={20} />}>
+                    Updates
+                </Tabs.Tab>
                 <Tabs.Tab value="settings" leftSection={<IconSettings size={20} />}>
                     Settings
                 </Tabs.Tab>
@@ -48,6 +52,10 @@ function RouteComponent() {
 
             <Tabs.Panel value="systemPrompts" p="md" h="100%">
                 <SystemPromptManager />
+            </Tabs.Panel>
+
+            <Tabs.Panel value="updates" p="md" h="100%">
+                <UpdateManager />
             </Tabs.Panel>
 
             <Tabs.Panel value="settings" p="md">

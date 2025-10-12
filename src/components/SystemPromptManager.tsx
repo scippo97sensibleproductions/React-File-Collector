@@ -15,7 +15,8 @@ import {
     ThemeIcon,
     Textarea,
     Center,
-    Tabs
+    Tabs,
+    Box,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import {
@@ -201,21 +202,25 @@ export const SystemPromptManager = () => {
                             New Prompt
                         </Tabs.Tab>
                         {prompts.map((prompt) => (
-                            <Tabs.Tab key={prompt.id} value={prompt.id}>
-                                <Group gap="xs" wrap="nowrap">
+                            <Box key={prompt.id} pos="relative">
+                                <Tabs.Tab value={prompt.id} pr="xl">
                                     <Text truncate="end" maw={200}>{prompt.name}</Text>
-                                    <ActionIcon
-                                        size="xs"
-                                        variant="transparent"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleDeletePrompt(prompt.id)
-                                        }}
-                                    >
-                                        <IconX size={12} />
-                                    </ActionIcon>
-                                </Group>
-                            </Tabs.Tab>
+                                </Tabs.Tab>
+                                <ActionIcon
+                                    size="xs"
+                                    variant="transparent"
+                                    onClick={() => handleDeletePrompt(prompt.id)}
+                                    style={{
+                                        position: 'absolute',
+                                        top: '50%',
+                                        right: rem(4),
+                                        transform: 'translateY(-50%)',
+                                    }}
+                                    aria-label={`Delete prompt: ${prompt.name}`}
+                                >
+                                    <IconX size={12} />
+                                </ActionIcon>
+                            </Box>
                         ))}
                     </Tabs.List>
                 </ScrollArea>

@@ -22,8 +22,8 @@
     "@tauri-apps/plugin-dialog": "^2.4.0",
     "@tauri-apps/plugin-fs": "^2.4.2",
     "@tauri-apps/plugin-http": "^2.5.2",
-    "@tauri-apps/plugin-shell": "^2.3.1",
     "@tauri-apps/plugin-opener": "^2",
+    "@tauri-apps/plugin-shell": "^2.3.1",
     "prismjs": "^1.30.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
@@ -32,8 +32,8 @@
     "remark-gfm": "^4.0.1"
   },
   "devDependencies": {
-    "@eslint/js": "^9.37.0",
     "@eslint/compat": "^1.4.0",
+    "@eslint/js": "^9.37.0",
     "@tanstack/router-plugin": "^1.132.51",
     "@tauri-apps/cli": "^2",
     "@types/prismjs": "^1.26.5",
