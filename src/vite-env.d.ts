@@ -5,6 +5,7 @@ interface ImportMetaEnv {
     readonly VITE_FILE_BASE_PATH: string
     readonly VITE_SYSTEM_PROMPTS_PATH: string
     readonly VITE_CONTEXTS_PATH: string
+    readonly VITE_GITHUB_REPO_URL: string
 }
 
 interface ImportMeta {
