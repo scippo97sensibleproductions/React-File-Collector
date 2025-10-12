@@ -11,24 +11,24 @@ import {
     Tooltip,
     useMantineTheme
 } from "@mantine/core";
-import { IconArchive, IconCheck, IconFiles, IconFolderOpen, IconRefresh, IconSearch } from "@tabler/icons-react";
-import { useState, useEffect, useRef } from "react";
-import { FileSearch } from "./FileSearch.tsx";
-import { VirtualizedFileTree } from "./VirtualizedFileTree.tsx";
-import type { DefinedTreeNode } from "../routes";
-import { ContextManager } from "./ContextManager.tsx";
-import { BaseDirectory, readTextFile } from "@tauri-apps/plugin-fs";
-import { useDebouncedValue, useMediaQuery } from "@mantine/hooks";
-import { getLanguage } from "../helpers/fileTypeManager.ts";
-import { estimateTokens } from "../helpers/TokenCounter.ts";
-import { readTextFileWithDetectedEncoding } from "../helpers/EncodingManager.ts";
-import type { FileInfo } from "../models/FileInfo.ts";
-import { ContentComposer } from "./ContentComposer.tsx";
-import { FileViewer } from "./FileViewer.tsx";
-import { writeText } from "@tauri-apps/plugin-clipboard-manager";
-import { notifications } from "@mantine/notifications";
-import { PathDisplay } from "./PathDisplay.tsx";
-import type { SystemPromptItem } from "../models/SystemPromptItem.ts";
+import {IconArchive, IconCheck, IconFiles, IconFolderOpen, IconRefresh, IconSearch} from "@tabler/icons-react";
+import {useEffect, useRef, useState} from "react";
+import {FileSearch} from "./FileSearch.tsx";
+import {VirtualizedFileTree} from "./VirtualizedFileTree.tsx";
+import type {DefinedTreeNode} from "../routes";
+import {ContextManager} from "./ContextManager.tsx";
+import {BaseDirectory, readTextFile} from "@tauri-apps/plugin-fs";
+import {useDebouncedValue, useMediaQuery} from "@mantine/hooks";
+import {getLanguage} from "../helpers/fileTypeManager.ts";
+import {estimateTokens} from "../helpers/TokenCounter.ts";
+import {readTextFileWithDetectedEncoding} from "../helpers/EncodingManager.ts";
+import type {FileInfo} from "../models/FileInfo.ts";
+import {ContentComposer} from "./ContentComposer.tsx";
+import {FileViewer} from "./FileViewer.tsx";
+import {writeText} from "@tauri-apps/plugin-clipboard-manager";
+import {notifications} from "@mantine/notifications";
+import {PathDisplay} from "./PathDisplay.tsx";
+import type {SystemPromptItem} from "../models/SystemPromptItem.ts";
 
 const PROMPTS_PATH = import.meta.env.VITE_SYSTEM_PROMPTS_PATH || 'FileCollector/system_prompts.json';
 const BASE_DIR = (Number(import.meta.env.VITE_FILE_BASE_PATH) || 21) as BaseDirectory;
@@ -101,7 +101,7 @@ export const FileManager = ({
     useEffect(() => {
         const getSystemPrompts = async () => {
             try {
-                const content = await readTextFile(PROMPTS_PATH, { baseDir: BASE_DIR });
+                const content = await readTextFile(PROMPTS_PATH, {baseDir: BASE_DIR});
                 const prompts = content ? JSON.parse(content) : [];
                 if (Array.isArray(prompts)) {
                     setSystemPrompts(prompts);
@@ -241,7 +241,7 @@ export const FileManager = ({
                 title: 'Content Copied',
                 message: `Successfully copied ~${currentTokens.toLocaleString()} tokens to clipboard.`,
                 color: 'green',
-                icon: <IconCheck size={18} />,
+                icon: <IconCheck size={18}/>,
             });
         } catch {
             notifications.show({
@@ -253,70 +253,70 @@ export const FileManager = ({
     };
 
     return (
-        <Flex direction="column" h={{ base: 'auto', lg: 'calc(100vh - 100px)' }} gap="md">
+        <Flex direction="column" gap="md" h={{base: 'auto', lg: 'calc(100vh - 100px)'}}>
             <Box pos="relative">
                 <LoadingOverlay
+                    loaderProps={{children: <Text>Scanning directory...</Text>}}
+                    overlayProps={{radius: 'sm', blur: 2}}
                     visible={isLoading}
                     zIndex={1000}
-                    overlayProps={{ radius: 'sm', blur: 2 }}
-                    loaderProps={{ children: <Text>Scanning directory...</Text> }}
                 />
                 <Flex
+                    align={isMobile ? 'stretch' : 'center'}
                     direction={isMobile ? 'column' : 'row'}
                     gap={isMobile ? 'sm' : 'md'}
-                    align={isMobile ? 'stretch' : 'center'}
                 >
                     <Group>
                         <Tooltip label="Select a project folder to analyze">
                             <Button
+                                leftSection={<IconFolderOpen size={18}/>}
                                 variant="light"
                                 onClick={onSelectFolder}
-                                leftSection={<IconFolderOpen size={18} />}
                             >
                                 Select Folder
                             </Button>
                         </Tooltip>
                         <Tooltip label="Reload file list from disk">
-                            <ActionIcon variant="light" onClick={onReloadTree} disabled={!path}>
-                                <IconRefresh size={18} />
+                            <ActionIcon disabled={!path} variant="light" onClick={onReloadTree}>
+                                <IconRefresh size={18}/>
                             </ActionIcon>
                         </Tooltip>
                     </Group>
-                    <Box style={{ flex: 1, minWidth: 0 }}>
-                        <PathDisplay path={path} />
+                    <Box style={{flex: 1, minWidth: 0}}>
+                        <PathDisplay path={path}/>
                     </Box>
                 </Flex>
             </Box>
 
             <Flex
+                direction={{base: 'column', lg: 'row'}}
                 gap="md"
-                style={{ flex: 1, minHeight: 0 }}
-                direction={{ base: 'column', lg: 'row' }}
+                style={{flex: 1, minHeight: 0}}
             >
-                <Box w={{ base: '100%', lg: isPreviewVisible ? 450 : '50%' }} h={{ base: 'auto', lg: '100%' }}>
-                    <Paper withBorder shadow="sm" p="md" h="100%" style={{ display: 'flex', flexDirection: 'column' }}>
-                        <Tabs defaultValue="files" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+                <Box h={{base: 'auto', lg: '100%'}} w={{base: '100%', lg: isPreviewVisible ? 450 : '50%'}}>
+                    <Paper withBorder h="100%" p="md" shadow="sm" style={{display: 'flex', flexDirection: 'column'}}>
+                        <Tabs defaultValue="files" style={{display: 'flex', flexDirection: 'column', height: '100%'}}>
                             <Tabs.List>
-                                <Tabs.Tab value="files" leftSection={<IconFiles size={16} />}>
+                                <Tabs.Tab leftSection={<IconFiles size={16}/>} value="files">
                                     Files
                                 </Tabs.Tab>
-                                <Tabs.Tab value="search" leftSection={<IconSearch size={16} />}>
+                                <Tabs.Tab leftSection={<IconSearch size={16}/>} value="search">
                                     Search
                                 </Tabs.Tab>
-                                <Tabs.Tab value="contexts" leftSection={<IconArchive size={16} />}>
+                                <Tabs.Tab leftSection={<IconArchive size={16}/>} value="contexts">
                                     Contexts
                                 </Tabs.Tab>
                             </Tabs.List>
 
-                            <Tabs.Panel value="files" pt="xs" style={{ flex: 1, minHeight: 0 }}>
+                            <Tabs.Panel pt="xs" style={{flex: 1, minHeight: 0}} value="files">
                                 <VirtualizedFileTree
-                                    data={data}
                                     checkedItems={checkedItems}
+                                    data={data}
                                     onNodeToggle={onNodeToggle}
                                 />
                             </Tabs.Panel>
 
-                            <Tabs.Panel value="search" pt="xs" style={{ flex: 1, minHeight: 0 }}>
+                            <Tabs.Panel pt="xs" style={{flex: 1, minHeight: 0}} value="search">
                                 <FileSearch
                                     allFiles={allFiles}
                                     checkedItems={checkedItems}
@@ -324,7 +324,7 @@ export const FileManager = ({
                                 />
                             </Tabs.Panel>
 
-                            <Tabs.Panel value="contexts" pt="xs" style={{ flex: 1, minHeight: 0 }}>
+                            <Tabs.Panel pt="xs" style={{flex: 1, minHeight: 0}} value="contexts">
                                 <ContextManager
                                     currentPath={path}
                                     selectedFilePaths={checkedItems}
@@ -335,36 +335,37 @@ export const FileManager = ({
                     </Paper>
                 </Box>
 
-                <Flex gap="md" style={{ flex: 1, minWidth: 0, position: 'relative' }} direction={{ base: 'column', md: 'row' }}>
-                    <LoadingOverlay visible={isProcessing} overlayProps={{ radius: 'sm', blur: 2 }} />
+                <Flex direction={{base: 'column', md: 'row'}} gap="md"
+                      style={{flex: 1, minWidth: 0, position: 'relative'}}>
+                    <LoadingOverlay overlayProps={{radius: 'sm', blur: 2}} visible={isProcessing}/>
                     <Box
-                        w={{ base: '100%', md: isPreviewVisible ? '45%' : '100%' }}
-                        miw={{ md: isPreviewVisible ? 400 : undefined }}
-                        h={{ base: 'auto', md: '100%' }}
+                        h={{base: 'auto', md: '100%'}}
+                        miw={{md: isPreviewVisible ? 400 : undefined}}
+                        w={{base: '100%', md: isPreviewVisible ? '45%' : '100%'}}
                     >
                         <ContentComposer
                             files={files}
-                            systemPrompts={systemPrompts}
                             selectedFile={selectedFile}
-                            userPrompt={userPrompt}
                             selectedSystemPromptId={selectedSystemPromptId}
-                            onFileSelect={handleFileSelect}
-                            onUncheckItem={handleRemoveItem}
-                            onUncheckGroup={handleRemoveGroupItems}
-                            onCopyAll={handleCopyAll}
-                            onReloadContent={handleReloadContent}
-                            onClearAll={handleClearAll}
-                            setUserPrompt={setUserPrompt}
                             setSelectedSystemPromptId={setSelectedSystemPromptId}
+                            setUserPrompt={setUserPrompt}
+                            systemPrompts={systemPrompts}
                             totalTokens={composedTotalTokens}
+                            userPrompt={userPrompt}
+                            onClearAll={handleClearAll}
+                            onCopyAll={handleCopyAll}
+                            onFileSelect={handleFileSelect}
+                            onReloadContent={handleReloadContent}
                             onShowPreview={() => setIsPreviewVisible(true)}
+                            onUncheckGroup={handleRemoveGroupItems}
+                            onUncheckItem={handleRemoveItem}
                         />
                     </Box>
                     {isPreviewVisible && (
-                        <Box style={{ flex: 1, minWidth: 0 }} h={{ base: 'auto', md: '100%' }}>
+                        <Box h={{base: 'auto', md: '100%'}} style={{flex: 1, minWidth: 0}}>
                             <FileViewer
-                                selectedFile={selectedFile}
                                 isEmpty={checkedFiles.length === 0}
+                                selectedFile={selectedFile}
                                 onClose={() => setIsPreviewVisible(false)}
                             />
                         </Box>

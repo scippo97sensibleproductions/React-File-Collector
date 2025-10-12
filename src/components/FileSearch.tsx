@@ -1,24 +1,24 @@
-import { useState, useEffect, type ReactNode, useTransition } from 'react';
+import {type ReactNode, useEffect, useState, useTransition} from 'react';
 import {
+    Accordion,
     ActionIcon,
+    Badge,
     Box,
     Center,
+    Group,
     Loader,
     NavLink,
     ScrollArea,
     Stack,
     Text,
     TextInput,
-    Tooltip,
-    Accordion,
-    Group,
-    Badge,
     ThemeIcon,
+    Tooltip,
 } from '@mantine/core';
-import { IconPlus, IconSearch, IconX } from '@tabler/icons-react';
-import { useDebouncedValue } from '@mantine/hooks';
-import { FileIcon } from "./FileIcon.tsx";
-import { getGroupInfoForFile } from "../helpers/FileGroupManager.tsx";
+import {IconPlus, IconSearch, IconX} from '@tabler/icons-react';
+import {useDebouncedValue} from '@mantine/hooks';
+import {FileIcon} from "./FileIcon.tsx";
+import {getGroupInfoForFile} from "../helpers/FileGroupManager.tsx";
 
 interface FileNode {
     label: string;
@@ -52,7 +52,7 @@ const getTruncatedPath = (fullPath: string): string => {
     return `...${separator}${relevantParts.join(separator)}`;
 };
 
-export function FileSearch({ allFiles, checkedItems, onCheckItem }: FileSearchProps) {
+export const FileSearch = ({allFiles, checkedItems, onCheckItem}: FileSearchProps) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [debouncedSearchQuery] = useDebouncedValue(searchQuery, 700);
     const [searchResults, setSearchResults] = useState<FileGroup[] | null>(null);
@@ -103,75 +103,78 @@ export function FileSearch({ allFiles, checkedItems, onCheckItem }: FileSearchPr
     const groupedFiles = searchResults ?? [];
 
     return (
-        <Stack h="100%" gap="sm">
+        <Stack gap="sm" h="100%">
             <TextInput
+                leftSection={<IconSearch size={16} stroke={1.5}/>}
                 placeholder="Search all project files..."
-                value={searchQuery}
-                onChange={handleSearchChange}
-                leftSection={<IconSearch size={16} stroke={1.5} />}
                 rightSection={
                     searchQuery ? (
                         <ActionIcon
-                            variant="transparent"
-                            c="dimmed"
-                            onClick={() => setSearchQuery('')}
                             aria-label="Clear search"
+                            c="dimmed"
+                            variant="transparent"
+                            onClick={() => setSearchQuery('')}
                         >
-                            <IconX size={16} />
+                            <IconX size={16}/>
                         </ActionIcon>
                     ) : null
                 }
+                value={searchQuery}
+                onChange={handleSearchChange}
             />
-            <Box style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+            <Box style={{flex: 1, overflow: 'hidden', position: 'relative'}}>
                 {isSearching && (
-                    <Center pos="absolute" inset={0} style={{ zIndex: 10 }}>
-                        <Loader size="sm" />
+                    <Center inset={0} pos="absolute" style={{zIndex: 10}}>
+                        <Loader size="sm"/>
                     </Center>
                 )}
                 <ScrollArea h="100%">
                     {!isSearching && debouncedSearchQuery.trim() && groupedFiles.length === 0 && (
-                        <Text c="dimmed" ta="center" pt="md" size="sm">No files found.</Text>
+                        <Text c="dimmed" pt="md" size="sm" ta="center">No files found.</Text>
                     )}
                     {!isSearching && groupedFiles.length > 0 && (
-                        <Accordion multiple value={activeAccordionItems} onChange={setActiveAccordionItems} variant="separated">
+                        <Accordion multiple value={activeAccordionItems} variant="separated"
+                                   onChange={setActiveAccordionItems}>
                             {groupedFiles.map((group) => (
                                 <Accordion.Item key={group.label} value={group.label}>
                                     <Accordion.Control>
                                         <Group justify="space-between">
                                             <Group gap="xs">
-                                                <ThemeIcon color={group.color} variant="light" size="lg" radius="sm">
+                                                <ThemeIcon color={group.color} radius="sm" size="lg" variant="light">
                                                     {group.icon}
                                                 </ThemeIcon>
-                                                <Text size="sm" fw={500}>{group.label}</Text>
+                                                <Text fw={500} size="sm">{group.label}</Text>
                                             </Group>
-                                            <Badge color={group.color} variant="light" radius="sm">{group.files.length}</Badge>
+                                            <Badge color={group.color} radius="sm"
+                                                   variant="light">{group.files.length}</Badge>
                                         </Group>
                                     </Accordion.Control>
                                     <Accordion.Panel>
                                         {group.files.map((file) => (
                                             <NavLink
                                                 key={file.value}
-                                                label={
-                                                    <Tooltip label={file.value} position="bottom-start" withArrow>
-                                                        <Text truncate="end" size="sm">{file.label}</Text>
-                                                    </Tooltip>
-                                                }
                                                 description={
-                                                    <Text truncate="end" size="xs" c="dimmed">
+                                                    <Text c="dimmed" size="xs" truncate="end">
                                                         {getTruncatedPath(file.value)}
                                                     </Text>
                                                 }
-                                                leftSection={<FileIcon name={file.label} isFolder={false} expanded={false} />}
+                                                label={
+                                                    <Tooltip withArrow label={file.value} position="bottom-start">
+                                                        <Text size="sm" truncate="end">{file.label}</Text>
+                                                    </Tooltip>
+                                                }
+                                                leftSection={<FileIcon expanded={false} isFolder={false}
+                                                                       name={file.label}/>}
                                                 rightSection={
                                                     <Tooltip label="Add file to selection">
                                                         <ActionIcon
-                                                            variant="subtle"
-                                                            size="sm"
-                                                            onClick={() => onCheckItem(file.value)}
-                                                            disabled={checkedSet.has(file.value)}
                                                             aria-label="Add file"
+                                                            disabled={checkedSet.has(file.value)}
+                                                            size="sm"
+                                                            variant="subtle"
+                                                            onClick={() => onCheckItem(file.value)}
                                                         >
-                                                            <IconPlus size={16} />
+                                                            <IconPlus size={16}/>
                                                         </ActionIcon>
                                                     </Tooltip>
                                                 }

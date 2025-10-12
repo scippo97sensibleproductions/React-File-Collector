@@ -1,4 +1,4 @@
-import { readFile } from '@tauri-apps/plugin-fs';
+import {readFile} from '@tauri-apps/plugin-fs';
 
 export async function readTextFileWithDetectedEncoding(path: string): Promise<string> {
     const buffer = await readFile(path);

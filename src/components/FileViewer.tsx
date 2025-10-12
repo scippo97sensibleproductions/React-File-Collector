@@ -1,22 +1,12 @@
-import {
-    Alert,
-    Center,
-    Code,
-    Paper,
-    ScrollArea,
-    Stack,
-    Text,
-    Loader,
-    Box, ActionIcon,
-} from '@mantine/core';
-import { IconAlertCircle, IconMessagePlus, IconInfoCircle, IconX } from '@tabler/icons-react';
-import { useEffect, useState, useRef } from "react";
-import type { FileInfo } from "../models/FileInfo.ts";
+import {ActionIcon, Alert, Box, Center, Code, Loader, Paper, ScrollArea, Stack, Text,} from '@mantine/core';
+import {IconAlertCircle, IconInfoCircle, IconMessagePlus, IconX} from '@tabler/icons-react';
+import {useEffect, useRef, useState} from "react";
+import type {FileInfo} from "../models/FileInfo.ts";
 import 'prismjs/themes/prism-okaidia.css';
 import 'prismjs/plugins/line-numbers/prism-line-numbers.css';
 import './FileViewer.css';
 import SyntaxHighlighterWorker from '../workers/syntaxHighlighter.worker.ts?worker';
-import { readTextFileWithDetectedEncoding } from "../helpers/EncodingManager.ts";
+import {readTextFileWithDetectedEncoding} from "../helpers/EncodingManager.ts";
 
 const LOADER_DELAY_MS = 300;
 
@@ -26,7 +16,7 @@ interface FileViewerProps {
     onClose: () => void;
 }
 
-export const FileViewer = ({ selectedFile, isEmpty, onClose }: FileViewerProps) => {
+export const FileViewer = ({selectedFile, isEmpty, onClose}: FileViewerProps) => {
     const [highlightedHtml, setHighlightedHtml] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [isWorkerReady, setIsWorkerReady] = useState(false);
@@ -118,7 +108,7 @@ export const FileViewer = ({ selectedFile, isEmpty, onClose }: FileViewerProps) 
             return (
                 <Center h="100%">
                     <Stack align="center" gap="xs">
-                        <IconInfoCircle size={48} stroke={1.5} color="var(--mantine-color-gray-5)"/>
+                        <IconInfoCircle color="var(--mantine-color-gray-5)" size={48} stroke={1.5}/>
                         <Text c="dimmed">Select files from the tree to begin.</Text>
                     </Stack>
                 </Center>
@@ -129,7 +119,7 @@ export const FileViewer = ({ selectedFile, isEmpty, onClose }: FileViewerProps) 
             return (
                 <Center h="100%">
                     <Stack align="center" gap="xs">
-                        <IconMessagePlus size={48} stroke={1.5} color="var(--mantine-color-gray-5)"/>
+                        <IconMessagePlus color="var(--mantine-color-gray-5)" size={48} stroke={1.5}/>
                         <Text c="dimmed">Select a file to view its content.</Text>
                     </Stack>
                 </Center>
@@ -137,13 +127,13 @@ export const FileViewer = ({ selectedFile, isEmpty, onClose }: FileViewerProps) 
         }
 
         return (
-            <Stack h="100%" gap="xs">
-                <Code block fz="xs" c="dimmed">{selectedFile.path}</Code>
-                <ScrollArea style={{ flex: 1, position: 'relative' }}>
-                    {isLoading && <Center pos="absolute" inset={0} style={{zIndex: 1}}><Loader/></Center>}
+            <Stack gap="xs" h="100%">
+                <Code block c="dimmed" fz="xs">{selectedFile.path}</Code>
+                <ScrollArea style={{flex: 1, position: 'relative'}}>
+                    {isLoading && <Center inset={0} pos="absolute" style={{zIndex: 1}}><Loader/></Center>}
 
                     {selectedFile.error && (
-                        <Alert variant="light" color="red" title="Could Not Display File" icon={<IconAlertCircle/>}>
+                        <Alert color="red" icon={<IconAlertCircle/>} title="Could Not Display File" variant="light">
                             {selectedFile.error}
                         </Alert>
                     )}
@@ -151,7 +141,7 @@ export const FileViewer = ({ selectedFile, isEmpty, onClose }: FileViewerProps) 
                     {!selectedFile.error && highlightedHtml && (
                         <Box
                             className="line-numbers"
-                            dangerouslySetInnerHTML={{ __html: `<pre><code>${highlightedHtml}</code></pre>` }}
+                            dangerouslySetInnerHTML={{__html: `<pre><code>${highlightedHtml}</code></pre>`}}
                         />
                     )}
                 </ScrollArea>
@@ -164,16 +154,16 @@ export const FileViewer = ({ selectedFile, isEmpty, onClose }: FileViewerProps) 
             withBorder
             h="100%"
             p={!isEmpty && selectedFile ? 'md' : undefined}
-            style={{ position: 'relative' }}
+            style={{position: 'relative'}}
         >
             <ActionIcon
-                variant="subtle"
-                color="gray"
-                onClick={onClose}
-                style={{ position: 'absolute', top: 8, right: 8, zIndex: 2 }}
                 aria-label="Close preview"
+                color="gray"
+                style={{position: 'absolute', top: 8, right: 8, zIndex: 2}}
+                variant="subtle"
+                onClick={onClose}
             >
-                <IconX size={16} />
+                <IconX size={16}/>
             </ActionIcon>
             {renderContent()}
         </Paper>

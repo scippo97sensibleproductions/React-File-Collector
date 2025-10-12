@@ -6,7 +6,7 @@ interface PrismWorkerGlobalScope extends WorkerGlobalScope {
     disableWorkerMessageHandler: true,
 };
 
-import('prismjs').then(async ({ default: Prism }) => {
+import('prismjs').then(async ({default: Prism}) => {
     await import('prismjs/components/prism-javascript');
     await import('prismjs/components/prism-typescript');
     await import('prismjs/components/prism-jsx');
@@ -28,17 +28,17 @@ import('prismjs').then(async ({ default: Prism }) => {
     ]);
 
     self.onmessage = (event: MessageEvent<{ code: string; language: string; jobId: string }>) => {
-        const { code, language, jobId } = event.data;
+        const {code, language, jobId} = event.data;
         const grammar = Prism.languages[language] || Prism.languages.plaintext;
 
         if (!grammar) {
-            postMessage({ error: `Grammar for language "${language}" not found.`, jobId });
+            postMessage({error: `Grammar for language "${language}" not found.`, jobId});
             return;
         }
 
         const html = Prism.highlight(code, grammar, language);
-        postMessage({ html, jobId });
+        postMessage({html, jobId});
     };
 
-    postMessage({ ready: true });
+    postMessage({ready: true});
 });

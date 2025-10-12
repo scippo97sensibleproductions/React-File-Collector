@@ -1,41 +1,36 @@
-import { useState, useEffect } from 'react';
+import {useEffect, useState} from 'react';
 import {
-    Title,
-    Text,
-    Stack,
-    Group,
-    Button,
     ActionIcon,
-    TextInput,
-    Paper,
-    Loader,
     Alert,
-    ScrollArea,
-    rem,
-    ThemeIcon,
-    Textarea,
-    Center,
-    Tabs,
     Box,
+    Button,
+    Center,
+    Group,
+    Loader,
+    Paper,
+    rem,
+    ScrollArea,
+    Stack,
+    Tabs,
+    Text,
+    Textarea,
+    TextInput,
+    ThemeIcon,
+    Title,
 } from '@mantine/core';
-import { notifications } from '@mantine/notifications';
+import {notifications} from '@mantine/notifications';
 import {
+    IconAlertCircle,
+    IconCheck,
+    IconDeviceFloppy,
     IconMessageChatbot,
     IconPlus,
     IconTrash,
-    IconCheck,
     IconX,
-    IconAlertCircle,
-    IconDeviceFloppy,
 } from '@tabler/icons-react';
-import {
-    exists,
-    readTextFile,
-    writeTextFile,
-    BaseDirectory,
-} from '@tauri-apps/plugin-fs';
-import { createFileEnsuringPath } from "../helpers/FileSystemManager.ts";
-import type { SystemPromptItem } from "../models/SystemPromptItem.ts";
+import {BaseDirectory, exists, readTextFile, writeTextFile,} from '@tauri-apps/plugin-fs';
+import {createFileEnsuringPath} from "../helpers/FileSystemManager.ts";
+import type {SystemPromptItem} from "../models/SystemPromptItem.ts";
 
 const PROMPTS_PATH = import.meta.env.VITE_SYSTEM_PROMPTS_PATH || 'FileCollector/system_prompts.json';
 const BASE_DIR = (Number(import.meta.env.VITE_FILE_BASE_PATH) || 21) as BaseDirectory;
@@ -54,14 +49,14 @@ export const SystemPromptManager = () => {
         setLoading(true);
         setError(null);
         try {
-            const fileExists = await exists(PROMPTS_PATH, { baseDir: BASE_DIR });
+            const fileExists = await exists(PROMPTS_PATH, {baseDir: BASE_DIR});
 
             if (!fileExists) {
-                await createFileEnsuringPath(PROMPTS_PATH, { baseDir: BASE_DIR });
-                await writeTextFile(PROMPTS_PATH, '[]', { baseDir: BASE_DIR });
+                await createFileEnsuringPath(PROMPTS_PATH, {baseDir: BASE_DIR});
+                await writeTextFile(PROMPTS_PATH, '[]', {baseDir: BASE_DIR});
                 setPrompts([]);
             } else {
-                const content = await readTextFile(PROMPTS_PATH, { baseDir: BASE_DIR });
+                const content = await readTextFile(PROMPTS_PATH, {baseDir: BASE_DIR});
                 const data = content ? JSON.parse(content) : [];
                 if (!Array.isArray(data)) {
                     const errorMessage = 'Invalid data format in system_prompts.json. Expected an array.';
@@ -83,7 +78,7 @@ export const SystemPromptManager = () => {
     const savePrompts = async (updatedPrompts: SystemPromptItem[]) => {
         try {
             const content = JSON.stringify(updatedPrompts, null, 2);
-            await writeTextFile(PROMPTS_PATH, content, { baseDir: BASE_DIR });
+            await writeTextFile(PROMPTS_PATH, content, {baseDir: BASE_DIR});
             setPrompts(updatedPrompts);
         } catch (err) {
             const errorMessage = err instanceof Error ? err.message : String(err);
@@ -126,13 +121,13 @@ export const SystemPromptManager = () => {
                 title: 'Prompt Added',
                 message: `Successfully added prompt "${newPrompt.name}".`,
                 color: 'green',
-                icon: <IconCheck />,
+                icon: <IconCheck/>,
             });
             setActiveTab(newPrompt.id);
         } else {
             const updatedPrompts = prompts.map(p =>
                 p.id === activeTab
-                    ? { ...p, name: draftName.trim(), content: draftContent.trim() }
+                    ? {...p, name: draftName.trim(), content: draftContent.trim()}
                     : p
             );
             await savePrompts(updatedPrompts);
@@ -140,7 +135,7 @@ export const SystemPromptManager = () => {
                 title: 'Prompt Updated',
                 message: `Successfully updated "${draftName.trim()}".`,
                 color: 'teal',
-                icon: <IconDeviceFloppy />,
+                icon: <IconDeviceFloppy/>,
             });
         }
     };
@@ -163,7 +158,7 @@ export const SystemPromptManager = () => {
             title: 'Prompt Removed',
             message: `Successfully removed "${promptToDelete.name}".`,
             color: 'red',
-            icon: <IconTrash />,
+            icon: <IconTrash/>,
         });
     };
 
@@ -173,8 +168,8 @@ export const SystemPromptManager = () => {
         }
     };
 
-    if (loading) return <Center p="xl"><Loader /></Center>;
-    if (error) return <Alert icon={<IconAlertCircle size="1rem" />} title="Error!" color="red">{error}</Alert>;
+    if (loading) return <Center p="xl"><Loader/></Center>;
+    if (error) return <Alert color="red" icon={<IconAlertCircle size="1rem"/>} title="Error!">{error}</Alert>;
 
     const isNewPrompt = activeTab === NEW_PROMPT_ID;
     const currentPrompt = isNewPrompt ? null : prompts.find(p => p.id === activeTab);
@@ -186,8 +181,8 @@ export const SystemPromptManager = () => {
     return (
         <Stack gap="xl" h="100%">
             <Group>
-                <ThemeIcon size="xl" variant="gradient" gradient={{ from: 'teal', to: 'lime', deg: 105 }}>
-                    <IconMessageChatbot style={{ width: rem(32), height: rem(32) }} />
+                <ThemeIcon gradient={{from: 'teal', to: 'lime', deg: 105}} size="xl" variant="gradient">
+                    <IconMessageChatbot style={{width: rem(32), height: rem(32)}}/>
                 </ThemeIcon>
                 <div>
                     <Title order={3}>System Prompt Manager</Title>
@@ -195,30 +190,31 @@ export const SystemPromptManager = () => {
                 </div>
             </Group>
 
-            <Tabs value={activeTab} onChange={handleTabChange} h="100%" style={{ display: 'flex', flexDirection: 'column' }}>
-                <ScrollArea type="auto" pb="xs">
-                    <Tabs.List style={{ flexWrap: 'nowrap' }}>
-                        <Tabs.Tab value={NEW_PROMPT_ID} leftSection={<IconPlus size={16} />}>
+            <Tabs h="100%" style={{display: 'flex', flexDirection: 'column'}} value={activeTab}
+                  onChange={handleTabChange}>
+                <ScrollArea pb="xs" type="auto">
+                    <Tabs.List style={{flexWrap: 'nowrap'}}>
+                        <Tabs.Tab leftSection={<IconPlus size={16}/>} value={NEW_PROMPT_ID}>
                             New Prompt
                         </Tabs.Tab>
                         {prompts.map((prompt) => (
                             <Box key={prompt.id} pos="relative">
-                                <Tabs.Tab value={prompt.id} pr="xl">
-                                    <Text truncate="end" maw={200}>{prompt.name}</Text>
+                                <Tabs.Tab pr="xl" value={prompt.id}>
+                                    <Text maw={200} truncate="end">{prompt.name}</Text>
                                 </Tabs.Tab>
                                 <ActionIcon
+                                    aria-label={`Delete prompt: ${prompt.name}`}
                                     size="xs"
-                                    variant="transparent"
-                                    onClick={() => handleDeletePrompt(prompt.id)}
                                     style={{
                                         position: 'absolute',
                                         top: '50%',
                                         right: rem(4),
                                         transform: 'translateY(-50%)',
                                     }}
-                                    aria-label={`Delete prompt: ${prompt.name}`}
+                                    variant="transparent"
+                                    onClick={() => handleDeletePrompt(prompt.id)}
                                 >
-                                    <IconX size={12} />
+                                    <IconX size={12}/>
                                 </ActionIcon>
                             </Box>
                         ))}
@@ -226,10 +222,10 @@ export const SystemPromptManager = () => {
                 </ScrollArea>
 
                 <Paper
-                    shadow="sm"
                     withBorder
                     p="md"
-                    style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}
+                    shadow="sm"
+                    style={{flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0}}
                 >
                     <Stack h="calc(100vh - 310px)">
                         <TextInput
@@ -241,16 +237,16 @@ export const SystemPromptManager = () => {
                         <Textarea
                             label="Prompt Content"
                             placeholder="You are a senior C# developer..."
+                            style={{flex: 1}}
+                            styles={{wrapper: {height: '100%'}, input: {height: '100%'}}}
                             value={draftContent}
                             onChange={(e) => setDraftContent(e.currentTarget.value)}
-                            style={{ flex: 1 }}
-                            styles={{ wrapper: { height: '100%' }, input: { height: '100%' } }}
                         />
                         <Group justify="flex-end" mt="md">
                             <Button
-                                leftSection={isNewPrompt ? <IconPlus size={18} /> : <IconDeviceFloppy size={18} />}
-                                onClick={handleSavePrompt}
                                 disabled={!canSave}
+                                leftSection={isNewPrompt ? <IconPlus size={18}/> : <IconDeviceFloppy size={18}/>}
+                                onClick={handleSavePrompt}
                             >
                                 {isNewPrompt ? 'Add New Prompt' : 'Save Changes'}
                             </Button>

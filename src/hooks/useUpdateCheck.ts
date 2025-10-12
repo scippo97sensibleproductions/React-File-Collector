@@ -1,7 +1,7 @@
-import { useState, useCallback } from 'react';
-import { getVersion } from '@tauri-apps/api/app';
-import { fetch } from '@tauri-apps/plugin-http';
-import type { GitHubRelease } from '../models/GitHubRelease.ts';
+import {useCallback, useState} from 'react';
+import {getVersion} from '@tauri-apps/api/app';
+import {fetch} from '@tauri-apps/plugin-http';
+import type {GitHubRelease} from '../models/GitHubRelease.ts';
 
 const REPO_URL = import.meta.env.VITE_GITHUB_REPO_URL;
 const GITHUB_API_URL = `https://api.github.com/repos/${REPO_URL}/releases/latest`;
@@ -56,18 +56,18 @@ export const useUpdateCheck = (log?: (message: string) => void) => {
 
     const check = useCallback(async () => {
         log?.('Starting update check...');
-        setState((s) => ({ ...s, isLoading: true, error: null }));
+        setState((s) => ({...s, isLoading: true, error: null}));
 
         try {
             log?.('Fetching current application version...');
             const current = await getVersion();
-            setState((s) => ({ ...s, currentVersion: current }));
+            setState((s) => ({...s, currentVersion: current}));
             log?.(`Current version identified: ${current}`);
 
             log?.(`Fetching latest release data from: ${GITHUB_API_URL}`);
             const response = await fetch(GITHUB_API_URL, {
                 method: 'GET',
-                headers: { 'User-Agent': 'FileCollector-App-Updater' },
+                headers: {'User-Agent': 'FileCollector-App-Updater'},
             });
 
             const responseData = (await response.json()) as unknown;
@@ -96,7 +96,7 @@ export const useUpdateCheck = (log?: (message: string) => void) => {
                 ...s,
                 isLoading: false,
                 isUpdateAvailable: isNewer,
-                latestVersionInfo: { tagName: latest, htmlUrl: latestRelease.html_url },
+                latestVersionInfo: {tagName: latest, htmlUrl: latestRelease.html_url},
                 lastChecked: new Date(),
             }));
             log?.('Update check complete.');
@@ -124,5 +124,5 @@ export const useUpdateCheck = (log?: (message: string) => void) => {
         }
     }, [log]);
 
-    return { state, check };
+    return {state, check};
 };

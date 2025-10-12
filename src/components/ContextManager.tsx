@@ -1,21 +1,10 @@
-import { useEffect, useState } from 'react';
-import {
-    Stack,
-    Text,
-    Group,
-    TextInput,
-    Select,
-    ActionIcon,
-    Title,
-    Tooltip,
-    Alert,
-    Center,
-} from '@mantine/core';
-import { notifications } from '@mantine/notifications';
-import { IconDeviceFloppy, IconPlayerPlay, IconTrash, IconAlertCircle, IconCheck } from '@tabler/icons-react';
-import { BaseDirectory, exists, readTextFile, writeTextFile } from '@tauri-apps/plugin-fs';
-import { createFileEnsuringPath } from '../helpers/FileSystemManager.ts';
-import type { SavedContext } from '../models/SavedContext.ts';
+import {useEffect, useState} from 'react';
+import {ActionIcon, Alert, Center, Group, Select, Stack, Text, TextInput, Title, Tooltip,} from '@mantine/core';
+import {notifications} from '@mantine/notifications';
+import {IconAlertCircle, IconCheck, IconDeviceFloppy, IconPlayerPlay, IconTrash} from '@tabler/icons-react';
+import {BaseDirectory, exists, readTextFile, writeTextFile} from '@tauri-apps/plugin-fs';
+import {createFileEnsuringPath} from '../helpers/FileSystemManager.ts';
+import type {SavedContext} from '../models/SavedContext.ts';
 
 const CONTEXTS_PATH = import.meta.env.VITE_CONTEXTS_PATH || 'FileCollector/contexts.json';
 const BASE_DIR = (Number(import.meta.env.VITE_FILE_BASE_PATH) || 21) as BaseDirectory;
@@ -26,7 +15,7 @@ interface ContextManagerProps {
     onLoadContext: (filePaths: string[]) => void;
 }
 
-export const ContextManager = ({ currentPath, selectedFilePaths, onLoadContext }: ContextManagerProps) => {
+export const ContextManager = ({currentPath, selectedFilePaths, onLoadContext}: ContextManagerProps) => {
     const [allContexts, setAllContexts] = useState<SavedContext[]>([]);
     const [error, setError] = useState<string | null>(null);
     const [newContextName, setNewContextName] = useState('');
@@ -36,14 +25,14 @@ export const ContextManager = ({ currentPath, selectedFilePaths, onLoadContext }
         const loadContexts = async () => {
             setError(null);
             try {
-                const fileExists = await exists(CONTEXTS_PATH, { baseDir: BASE_DIR });
+                const fileExists = await exists(CONTEXTS_PATH, {baseDir: BASE_DIR});
                 if (!fileExists) {
-                    await createFileEnsuringPath(CONTEXTS_PATH, { baseDir: BASE_DIR });
-                    await writeTextFile(CONTEXTS_PATH, '[]', { baseDir: BASE_DIR });
+                    await createFileEnsuringPath(CONTEXTS_PATH, {baseDir: BASE_DIR});
+                    await writeTextFile(CONTEXTS_PATH, '[]', {baseDir: BASE_DIR});
                     setAllContexts([]);
                     return;
                 }
-                const content = await readTextFile(CONTEXTS_PATH, { baseDir: BASE_DIR });
+                const content = await readTextFile(CONTEXTS_PATH, {baseDir: BASE_DIR});
                 const data = content ? JSON.parse(content) : [];
 
                 if (Array.isArray(data)) {
@@ -63,7 +52,7 @@ export const ContextManager = ({ currentPath, selectedFilePaths, onLoadContext }
     const saveContextsToFile = async (updatedContexts: SavedContext[]) => {
         try {
             const content = JSON.stringify(updatedContexts, null, 2);
-            await writeTextFile(CONTEXTS_PATH, content, { baseDir: BASE_DIR });
+            await writeTextFile(CONTEXTS_PATH, content, {baseDir: BASE_DIR});
             setAllContexts(updatedContexts);
         } catch (err) {
             const errorMessage = err instanceof Error ? err.message : String(err);
@@ -107,7 +96,7 @@ export const ContextManager = ({ currentPath, selectedFilePaths, onLoadContext }
             title: 'Success',
             message: notificationMessage,
             color: 'green',
-            icon: <IconCheck />,
+            icon: <IconCheck/>,
         });
         setNewContextName('');
     };
@@ -135,7 +124,7 @@ export const ContextManager = ({ currentPath, selectedFilePaths, onLoadContext }
                 title: 'Context Deleted',
                 message: `Deleted context '${contextToDelete.name}'.`,
                 color: 'red',
-                icon: <IconTrash />,
+                icon: <IconTrash/>,
             });
             setSelectedContextId(null);
         }
@@ -143,7 +132,7 @@ export const ContextManager = ({ currentPath, selectedFilePaths, onLoadContext }
 
     if (error) {
         return (
-            <Alert icon={<IconAlertCircle size="1rem" />} title="Error!" color="red" variant="light">
+            <Alert color="red" icon={<IconAlertCircle size="1rem"/>} title="Error!" variant="light">
                 {error}
             </Alert>
         );
@@ -164,7 +153,7 @@ export const ContextManager = ({ currentPath, selectedFilePaths, onLoadContext }
 
     const contextsForCurrentPath = allContexts
         .filter(c => c.rootPath === currentPath)
-        .map(c => ({ value: c.id, label: c.name }));
+        .map(c => ({value: c.id, label: c.name}));
 
     return (
         <Stack gap="md">
@@ -173,43 +162,44 @@ export const ContextManager = ({ currentPath, selectedFilePaths, onLoadContext }
                 <TextInput
                     label="Save current selection as"
                     placeholder="New context name..."
-                    value={newContextName}
-                    onChange={e => setNewContextName(e.currentTarget.value)}
                     rightSection={
                         <Tooltip label="Save Context">
                             <ActionIcon
+                                disabled={!newContextName.trim() || selectedFilePaths.length === 0}
                                 variant="light"
                                 onClick={handleSaveContext}
-                                disabled={!newContextName.trim() || selectedFilePaths.length === 0}
                             >
-                                <IconDeviceFloppy size={16} />
+                                <IconDeviceFloppy size={16}/>
                             </ActionIcon>
                         </Tooltip>
                     }
+                    value={newContextName}
+                    onChange={e => setNewContextName(e.currentTarget.value)}
                 />
             </Stack>
             {contextsForCurrentPath.length > 0 ? (
                 <Stack gap={4}>
-                    <Text component="label" size="sm" fw={500}>
+                    <Text component="label" fw={500} size="sm">
                         Load or delete context
                     </Text>
-                    <Group grow preventGrowOverflow={false} wrap="nowrap" align="center">
+                    <Group grow align="center" preventGrowOverflow={false} wrap="nowrap">
                         <Select
-                            placeholder="Select a context..."
+                            clearable
                             data={contextsForCurrentPath}
+                            placeholder="Select a context..."
                             value={selectedContextId}
                             onChange={setSelectedContextId}
-                            clearable
                         />
                         <Group gap="xs">
                             <Tooltip label="Load">
-                                <ActionIcon variant="light" onClick={handleLoadContext} disabled={!selectedContextId}>
-                                    <IconPlayerPlay size={16} />
+                                <ActionIcon disabled={!selectedContextId} variant="light" onClick={handleLoadContext}>
+                                    <IconPlayerPlay size={16}/>
                                 </ActionIcon>
                             </Tooltip>
                             <Tooltip label="Delete">
-                                <ActionIcon variant="light" color="red" onClick={handleDeleteContext} disabled={!selectedContextId}>
-                                    <IconTrash size={16} />
+                                <ActionIcon color="red" disabled={!selectedContextId} variant="light"
+                                            onClick={handleDeleteContext}>
+                                    <IconTrash size={16}/>
                                 </ActionIcon>
                             </Tooltip>
                         </Group>

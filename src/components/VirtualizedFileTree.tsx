@@ -1,10 +1,10 @@
-import { useState } from 'react';
-import { Box, Checkbox, Group, Stack, Text, Title, Center } from '@mantine/core';
-import { List, type RowComponentProps } from 'react-window';
-import { IconCaretDownFilled, IconCaretRightFilled, IconFolderOff } from '@tabler/icons-react';
-import { useElementSize } from '@mantine/hooks';
-import { FileIcon } from './FileIcon';
-import type { DefinedTreeNode } from '../routes';
+import {useState} from 'react';
+import {Box, Center, Checkbox, Group, Stack, Text, Title} from '@mantine/core';
+import {List, type RowComponentProps} from 'react-window';
+import {IconCaretDownFilled, IconCaretRightFilled, IconFolderOff} from '@tabler/icons-react';
+import {useElementSize} from '@mantine/hooks';
+import {FileIcon} from './FileIcon';
+import type {DefinedTreeNode} from '../routes';
 
 interface FlatNode {
     id: string;
@@ -34,7 +34,7 @@ const flattenTree = (nodes: DefinedTreeNode[], expandedIds: Set<string>, depth =
     let flatList: FlatNode[] = [];
     for (const node of nodes) {
         const isFolder = Array.isArray(node.children);
-        flatList.push({ id: node.value, label: node.label, depth, isFolder, node });
+        flatList.push({id: node.value, label: node.label, depth, isFolder, node});
         if (isFolder && expandedIds.has(node.value) && node.children) {
             flatList = flatList.concat(flattenTree(node.children, expandedIds, depth + 1));
         }
@@ -49,9 +49,9 @@ const collectFilePaths = (node: DefinedTreeNode): string[] => {
     return node.children.flatMap(collectFilePaths);
 };
 
-const NodeRow = ({ index, style, ariaAttributes, ...props }: RowComponentProps<TreeRowProps>) => {
-    const { flatNodes, nodeCheckStates, expandedIds, toggleExpand, toggleCheck } = props;
-    const { id, label, depth, isFolder, node } = flatNodes[index];
+const NodeRow = ({index, style, ariaAttributes, ...props}: RowComponentProps<TreeRowProps>) => {
+    const {flatNodes, nodeCheckStates, expandedIds, toggleExpand, toggleCheck} = props;
+    const {id, label, depth, isFolder, node} = flatNodes[index];
 
     const state = nodeCheckStates.get(id) ?? 'unchecked';
     const isChecked = state === 'checked';
@@ -59,34 +59,34 @@ const NodeRow = ({ index, style, ariaAttributes, ...props }: RowComponentProps<T
 
     return (
         <Box style={style} {...ariaAttributes}>
-            <Group gap={0} wrap="nowrap" style={{ height: '100%' }}>
+            <Group gap={0} style={{height: '100%'}} wrap="nowrap">
                 <Box
-                    style={{ paddingLeft: depth * 20, display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+                    style={{paddingLeft: depth * 20, display: 'flex', alignItems: 'center', cursor: 'pointer'}}
                     onClick={() => isFolder && toggleExpand(id)}
                 >
                     {isFolder ? (
-                        expandedIds.has(id) ? <IconCaretDownFilled size={14} /> : <IconCaretRightFilled size={14} />
+                        expandedIds.has(id) ? <IconCaretDownFilled size={14}/> : <IconCaretRightFilled size={14}/>
                     ) : (
-                        <Box w={14} />
+                        <Box w={14}/>
                     )}
                 </Box>
                 <Group
                     gap="xs"
+                    style={{flex: 1, cursor: 'pointer', height: '100%'}}
                     wrap="nowrap"
-                    style={{ flex: 1, cursor: 'pointer', height: '100%' }}
                     onClick={(e) => {
                         e.stopPropagation();
                         toggleCheck(node);
                     }}
                 >
                     <Checkbox
+                        aria-hidden
+                        readOnly
                         checked={isChecked}
                         indeterminate={isIndeterminate}
-                        readOnly
-                        aria-hidden
                     />
-                    <FileIcon name={label} isFolder={isFolder} expanded={expandedIds.has(id)} />
-                    <Text size="sm" truncate="end" style={{ userSelect: 'none' }} title={label}>
+                    <FileIcon expanded={expandedIds.has(id)} isFolder={isFolder} name={label}/>
+                    <Text size="sm" style={{userSelect: 'none'}} title={label} truncate="end">
                         {label}
                     </Text>
                 </Group>
@@ -95,9 +95,9 @@ const NodeRow = ({ index, style, ariaAttributes, ...props }: RowComponentProps<T
     );
 };
 
-export const VirtualizedFileTree = ({ data, checkedItems, onNodeToggle }: VirtualizedFileTreeProps) => {
+export const VirtualizedFileTree = ({data, checkedItems, onNodeToggle}: VirtualizedFileTreeProps) => {
     const [expandedIds, setExpandedIds] = useState(new Set<string>());
-    const { ref: containerRef } = useElementSize();
+    const {ref: containerRef} = useElementSize();
 
     const toggleExpand = (id: string) => {
         setExpandedIds(currentIds => {
@@ -156,21 +156,21 @@ export const VirtualizedFileTree = ({ data, checkedItems, onNodeToggle }: Virtua
     };
 
     return (
-        <Stack h="100%" gap="sm">
+        <Stack gap="sm" h="100%">
             <Title order={5}>Project Files</Title>
-            <Box style={{ flex: 1, minHeight: 0 }} ref={containerRef}>
+            <Box ref={containerRef} style={{flex: 1, minHeight: 0}}>
                 {data.length > 0 ? (
                     <List
+                        rowComponent={NodeRow}
                         rowCount={flatNodes.length}
                         rowHeight={28}
-                        rowComponent={NodeRow}
                         rowProps={rowProps}
                     />
                 ) : (
                     <Center h="100%">
                         <Stack align="center">
-                            <IconFolderOff size={48} stroke={1.5} color="var(--mantine-color-gray-5)" />
-                            <Text c="dimmed" ta="center">Select a folder to<br />view the file tree.</Text>
+                            <IconFolderOff color="var(--mantine-color-gray-5)" size={48} stroke={1.5}/>
+                            <Text c="dimmed" ta="center">Select a folder to<br/>view the file tree.</Text>
                         </Stack>
                     </Center>
                 )}

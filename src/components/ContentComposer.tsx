@@ -3,23 +3,23 @@ import {
     Button,
     Group,
     Paper,
+    ScrollArea,
     Select,
     Stack,
+    Tabs,
     Text,
     Textarea,
     Title,
     Tooltip,
-    Tabs,
-    ScrollArea,
     Typography,
 } from '@mantine/core';
-import { IconCopy, IconEye, IconRefresh, IconTrash, IconX } from '@tabler/icons-react';
-import { useEffect, useState } from 'react';
+import {IconCopy, IconEye, IconRefresh, IconTrash, IconX} from '@tabler/icons-react';
+import {useEffect, useState} from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { SelectedFileList } from './SelectedFileList';
-import type { FileInfo } from "../models/FileInfo.ts";
-import type { SystemPromptItem } from "../models/SystemPromptItem.ts";
+import {SelectedFileList} from './SelectedFileList';
+import type {FileInfo} from "../models/FileInfo.ts";
+import type {SystemPromptItem} from "../models/SystemPromptItem.ts";
 
 interface ContentComposerProps {
     files: FileInfo[];
@@ -76,42 +76,42 @@ export const ContentComposer = ({
     }, [userPrompt]);
 
     return (
-        <Paper withBorder shadow="sm" p="md" h="100%">
-            <Stack h="100%" gap="md">
-                <Group justify="space-between" align="center">
+        <Paper withBorder h="100%" p="md" shadow="sm">
+            <Stack gap="md" h="100%">
+                <Group align="center" justify="space-between">
                     <Title order={5}>Content Composer</Title>
-                    <Group gap="xs" align="center">
-                        <Text size="xs" c="dimmed" fw={500}>
+                    <Group align="center" gap="xs">
+                        <Text c="dimmed" fw={500} size="xs">
                             ~{totalTokens.toLocaleString()} tokens
                         </Text>
                         <Tooltip label="Reload content of selected files">
-                            <ActionIcon variant="light" size="sm" onClick={onReloadContent} disabled={!hasFiles}>
-                                <IconRefresh size={16} />
+                            <ActionIcon disabled={!hasFiles} size="sm" variant="light" onClick={onReloadContent}>
+                                <IconRefresh size={16}/>
                             </ActionIcon>
                         </Tooltip>
                         <Tooltip label="Clear all selected files">
-                            <ActionIcon variant="light" color="red" size="sm" onClick={onClearAll} disabled={!hasFiles}>
-                                <IconTrash size={16} />
+                            <ActionIcon color="red" disabled={!hasFiles} size="sm" variant="light" onClick={onClearAll}>
+                                <IconTrash size={16}/>
                             </ActionIcon>
                         </Tooltip>
                         <Tooltip label="Show file preview">
                             <Button
+                                disabled={!selectedFile}
+                                leftSection={<IconEye size={14}/>}
                                 size="compact-sm"
                                 variant="light"
                                 onClick={onShowPreview}
-                                leftSection={<IconEye size={14} />}
-                                disabled={!selectedFile}
                             >
                                 Preview
                             </Button>
                         </Tooltip>
                         <Tooltip label="Copy composed prompt to clipboard">
                             <Button
+                                disabled={!hasFiles && !userPrompt && !selectedSystemPromptId}
+                                leftSection={<IconCopy size={14}/>}
                                 size="compact-sm"
                                 variant="light"
                                 onClick={onCopyAll}
-                                leftSection={<IconCopy size={14} />}
-                                disabled={!hasFiles && !userPrompt && !selectedSystemPromptId}
                             >
                                 Copy All
                             </Button>
@@ -120,33 +120,33 @@ export const ContentComposer = ({
                 </Group>
 
                 <Select
+                    clearable
+                    data={systemPrompts.map(p => ({value: p.id, label: p.name}))}
                     label="System Prompt"
                     placeholder="Prepend a system prompt..."
-                    data={systemPrompts.map(p => ({ value: p.id, label: p.name }))}
                     value={selectedSystemPromptId}
                     onChange={setSelectedSystemPromptId}
-                    clearable
                 />
 
                 <SelectedFileList
                     files={files}
                     selectedFile={selectedFile}
                     onFileSelect={onFileSelect}
-                    onUncheckItem={onUncheckItem}
                     onUncheckGroup={onUncheckGroup}
+                    onUncheckItem={onUncheckItem}
                 />
 
                 <Stack gap={4}>
                     <Group justify="space-between">
-                        <Text component="label" size="sm" fw={500} htmlFor="user-prompt-editor">
+                        <Text component="label" fw={500} htmlFor="user-prompt-editor" size="sm">
                             User Prompt
                         </Text>
                         {inputValue ? (
                             <ActionIcon
-                                onClick={() => setInputValue('')}
-                                variant="transparent"
-                                c="dimmed"
                                 aria-label="Clear prompt"
+                                c="dimmed"
+                                variant="transparent"
+                                onClick={() => setInputValue('')}
                             >
                                 <IconX size={16}/>
                             </ActionIcon>
@@ -155,29 +155,29 @@ export const ContentComposer = ({
                     <Tabs defaultValue="write" variant="outline">
                         <Tabs.List>
                             <Tabs.Tab value="write">Write</Tabs.Tab>
-                            <Tabs.Tab value="preview" disabled={!inputValue.trim()}>Preview</Tabs.Tab>
+                            <Tabs.Tab disabled={!inputValue.trim()} value="preview">Preview</Tabs.Tab>
                         </Tabs.List>
-                        <Tabs.Panel value="write" pt="xs">
+                        <Tabs.Panel pt="xs" value="write">
                             <Textarea
+                                autosize
                                 id="user-prompt-editor"
+                                maxRows={8}
+                                minRows={3}
                                 placeholder="Append a user prompt... Markdown is supported."
                                 value={inputValue}
                                 onChange={(e) => setInputValue(e.currentTarget.value)}
-                                autosize
-                                minRows={3}
-                                maxRows={8}
                             />
                         </Tabs.Panel>
-                        <Tabs.Panel value="preview" pt="xs">
+                        <Tabs.Panel pt="xs" value="preview">
                             <ScrollArea
                                 mah="15rem"
                                 mih="5.25rem"
-                                type="auto"
                                 p="xs"
                                 style={{
                                     border: '1px solid var(--mantine-color-default-border)',
                                     borderRadius: 'var(--mantine-radius-sm)',
                                 }}
+                                type="auto"
                             >
                                 <Typography>
                                     <ReactMarkdown remarkPlugins={[remarkGfm]}>

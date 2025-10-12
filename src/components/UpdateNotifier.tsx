@@ -1,13 +1,13 @@
-import { useEffect } from 'react';
-import { Modal, Text, Button, Group, Stack, Title, ThemeIcon, rem } from '@mantine/core';
-import { useDisclosure } from '@mantine/hooks';
-import { IconArrowUpRightCircle, IconDownload } from '@tabler/icons-react';
-import { open } from '@tauri-apps/plugin-shell';
-import { useUpdateCheck } from '../hooks/useUpdateCheck.ts';
+import {useEffect} from 'react';
+import {Button, Group, Modal, rem, Stack, Text, ThemeIcon, Title} from '@mantine/core';
+import {useDisclosure} from '@mantine/hooks';
+import {IconArrowUpRightCircle, IconDownload} from '@tabler/icons-react';
+import {open} from '@tauri-apps/plugin-shell';
+import {useUpdateCheck} from '../hooks/useUpdateCheck.ts';
 
 export const UpdateNotifier = () => {
-    const [opened, { open: openModal, close }] = useDisclosure(false);
-    const { state, check } = useUpdateCheck();
+    const [opened, {open: openModal, close}] = useDisclosure(false);
+    const {state, check} = useUpdateCheck();
 
     useEffect(() => {
         const runCheck = async () => {
@@ -29,25 +29,26 @@ export const UpdateNotifier = () => {
     }
 
     return (
-        <Modal opened={opened} onClose={close} title={<Title order={4}>Update Available!</Title>} centered>
+        <Modal centered opened={opened} title={<Title order={4}>Update Available!</Title>} onClose={close}>
             <Stack gap="lg">
                 <Group>
-                    <ThemeIcon size="xl" variant="gradient" gradient={{ from: 'teal', to: 'blue' }}>
-                        <IconArrowUpRightCircle style={{ width: rem(32), height: rem(32) }} />
+                    <ThemeIcon gradient={{from: 'teal', to: 'blue'}} size="xl" variant="gradient">
+                        <IconArrowUpRightCircle style={{width: rem(32), height: rem(32)}}/>
                     </ThemeIcon>
                     <div>
                         <Text fw={500}>A new version of File Collector is ready.</Text>
-                        <Text size="sm" c="dimmed">
-                            You are on version {state.currentVersion}, but {state.latestVersionInfo.tagName} is available.
+                        <Text c="dimmed" size="sm">
+                            You are on version {state.currentVersion}, but {state.latestVersionInfo.tagName} is
+                            available.
                         </Text>
                     </div>
                 </Group>
                 <Button
                     fullWidth
-                    leftSection={<IconDownload size={18} />}
-                    onClick={() => open(state.latestVersionInfo!.htmlUrl)}
+                    gradient={{from: 'blue', to: 'cyan'}}
+                    leftSection={<IconDownload size={18}/>}
                     variant="gradient"
-                    gradient={{ from: 'blue', to: 'cyan' }}
+                    onClick={() => open(state.latestVersionInfo!.htmlUrl)}
                 >
                     Go to Download Page
                 </Button>

@@ -1,46 +1,46 @@
-import { AppShell, Box, Burger, Group, Stack, Title } from "@mantine/core"
-import { createRootRoute, Outlet } from '@tanstack/react-router'
-import { ThemeToggle } from "../layout/ThemeToggle.tsx";
-import { NavMenu } from "../layout/NavMenu.tsx";
-import { useDisclosure } from "@mantine/hooks";
-import { IconCode } from "@tabler/icons-react";
-import { UpdateNotifier } from "../components/UpdateNotifier.tsx";
+import {AppShell, Box, Burger, Group, Stack, Title} from "@mantine/core"
+import {createRootRoute, Outlet} from '@tanstack/react-router'
+import {ThemeToggle} from "../layout/ThemeToggle.tsx";
+import {NavMenu} from "../layout/NavMenu.tsx";
+import {useDisclosure} from "@mantine/hooks";
+import {IconCode} from "@tabler/icons-react";
+import {UpdateNotifier} from "../components/UpdateNotifier.tsx";
 
 const RootLayout = () => {
-    const [opened, { toggle, close }] = useDisclosure();
+    const [opened, {toggle, close}] = useDisclosure();
 
     return (
         <>
-            <UpdateNotifier />
+            <UpdateNotifier/>
             <AppShell
-                padding="md"
-                header={{ height: 60 }}
-                navbar={{ width: 200, breakpoint: 'sm', collapsed: { mobile: !opened } }}
+                header={{height: 60}}
                 layout="alt"
+                navbar={{width: 200, breakpoint: 'sm', collapsed: {mobile: !opened}}}
+                padding="md"
             >
                 <AppShell.Header>
                     <Group h="100%" px="md">
-                        <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
-                        <IconCode />
+                        <Burger hiddenFrom="sm" opened={opened} size="sm" onClick={toggle}/>
+                        <IconCode/>
                         <Title order={4}>File Collector</Title>
                     </Group>
                 </AppShell.Header>
 
                 <AppShell.Navbar p="md">
-                    <Stack justify="space-between" h="100%">
+                    <Stack h="100%" justify="space-between">
                         <Box>
-                            <NavMenu onNavigate={close} />
+                            <NavMenu onNavigate={close}/>
                         </Box>
-                        <ThemeToggle />
+                        <ThemeToggle/>
                     </Stack>
                 </AppShell.Navbar>
 
                 <AppShell.Main>
-                    <Outlet />
+                    <Outlet/>
                 </AppShell.Main>
             </AppShell>
         </>
     );
 }
 
-export const Route = createRootRoute({ component: RootLayout })
+export const Route = createRootRoute({component: RootLayout})

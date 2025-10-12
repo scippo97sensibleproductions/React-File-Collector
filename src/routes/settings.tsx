@@ -1,24 +1,20 @@
-import { createFileRoute } from '@tanstack/react-router'
-import { Tabs, useMantineTheme } from "@mantine/core";
-import { IconBrandGit, IconSettings, IconMessageChatbot, IconCloudDownload } from "@tabler/icons-react";
-import { GitIgnoreManager } from "../components/GitIgnoreManager.tsx";
-import { SystemPromptManager } from "../components/SystemPromptManager.tsx";
-import { useMediaQuery } from "@mantine/hooks";
-import { UpdateManager } from "../components/UpdateManager.tsx";
+import {createFileRoute} from '@tanstack/react-router'
+import {Tabs, useMantineTheme} from "@mantine/core";
+import {IconBrandGit, IconCloudDownload, IconMessageChatbot, IconSettings} from "@tabler/icons-react";
+import {GitIgnoreManager} from "../components/GitIgnoreManager.tsx";
+import {SystemPromptManager} from "../components/SystemPromptManager.tsx";
+import {useMediaQuery} from "@mantine/hooks";
+import {UpdateManager} from "../components/UpdateManager.tsx";
 
-export const Route = createFileRoute('/settings')({
-    component: RouteComponent,
-})
-
-function RouteComponent() {
+const Settings = () => {
     const theme = useMantineTheme();
     const isMobile = useMediaQuery(`(max-width: ${theme.breakpoints.sm})`);
 
     return (
         <Tabs
             defaultValue="gitIgnore"
-            orientation={isMobile ? 'horizontal' : 'vertical'}
             h="100%"
+            orientation={isMobile ? 'horizontal' : 'vertical'}
             styles={{
                 root: {
                     display: 'flex',
@@ -32,35 +28,39 @@ function RouteComponent() {
             }}
         >
             <Tabs.List>
-                <Tabs.Tab value="gitIgnore" leftSection={<IconBrandGit size={20} />}>
+                <Tabs.Tab leftSection={<IconBrandGit size={20}/>} value="gitIgnore">
                     Ignores
                 </Tabs.Tab>
-                <Tabs.Tab value="systemPrompts" leftSection={<IconMessageChatbot size={20} />}>
+                <Tabs.Tab leftSection={<IconMessageChatbot size={20}/>} value="systemPrompts">
                     System Prompts
                 </Tabs.Tab>
-                <Tabs.Tab value="updates" leftSection={<IconCloudDownload size={20} />}>
+                <Tabs.Tab leftSection={<IconCloudDownload size={20}/>} value="updates">
                     Updates
                 </Tabs.Tab>
-                <Tabs.Tab value="settings" leftSection={<IconSettings size={20} />}>
+                <Tabs.Tab leftSection={<IconSettings size={20}/>} value="settings">
                     Settings
                 </Tabs.Tab>
             </Tabs.List>
 
-            <Tabs.Panel value="gitIgnore" p="md" h="100%">
-                <GitIgnoreManager />
+            <Tabs.Panel h="100%" p="md" value="gitIgnore">
+                <GitIgnoreManager/>
             </Tabs.Panel>
 
-            <Tabs.Panel value="systemPrompts" p="md" h="100%">
-                <SystemPromptManager />
+            <Tabs.Panel h="100%" p="md" value="systemPrompts">
+                <SystemPromptManager/>
             </Tabs.Panel>
 
-            <Tabs.Panel value="updates" p="md" h="100%">
-                <UpdateManager />
+            <Tabs.Panel h="100%" p="md" value="updates">
+                <UpdateManager/>
             </Tabs.Panel>
 
-            <Tabs.Panel value="settings" p="md">
+            <Tabs.Panel p="md" value="settings">
                 Settings tab content
             </Tabs.Panel>
         </Tabs>
     );
 }
+
+export const Route = createFileRoute('/settings')({
+    component: Settings,
+})

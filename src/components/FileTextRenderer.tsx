@@ -1,17 +1,17 @@
-import { Flex, LoadingOverlay, Box } from "@mantine/core";
-import { useEffect, useState, useRef } from "react";
-import { BaseDirectory, readTextFile } from "@tauri-apps/plugin-fs";
-import { IconCheck } from '@tabler/icons-react';
-import { getLanguage } from "../helpers/fileTypeManager.ts";
-import { writeText } from '@tauri-apps/plugin-clipboard-manager';
-import { notifications } from "@mantine/notifications";
-import type { FileInfo } from "../models/FileInfo.ts";
-import { ContentComposer } from "./ContentComposer.tsx";
-import { FileViewer } from "./FileViewer.tsx";
-import { estimateTokens } from "../helpers/TokenCounter.ts";
-import { readTextFileWithDetectedEncoding } from "../helpers/EncodingManager.ts";
-import { useDebouncedValue } from "@mantine/hooks";
-import type { SystemPromptItem } from "../models/SystemPromptItem.ts";
+import {Box, Flex, LoadingOverlay} from "@mantine/core";
+import {useEffect, useRef, useState} from "react";
+import {BaseDirectory, readTextFile} from "@tauri-apps/plugin-fs";
+import {IconCheck} from '@tabler/icons-react';
+import {getLanguage} from "../helpers/fileTypeManager.ts";
+import {writeText} from '@tauri-apps/plugin-clipboard-manager';
+import {notifications} from "@mantine/notifications";
+import type {FileInfo} from "../models/FileInfo.ts";
+import {ContentComposer} from "./ContentComposer.tsx";
+import {FileViewer} from "./FileViewer.tsx";
+import {estimateTokens} from "../helpers/TokenCounter.ts";
+import {readTextFileWithDetectedEncoding} from "../helpers/EncodingManager.ts";
+import {useDebouncedValue} from "@mantine/hooks";
+import type {SystemPromptItem} from "../models/SystemPromptItem.ts";
 
 const PROMPTS_PATH = import.meta.env.VITE_SYSTEM_PROMPTS_PATH || 'FileCollector/system_prompts.json';
 const BASE_DIR = (Number(import.meta.env.VITE_FILE_BASE_PATH) || 21) as BaseDirectory;
@@ -24,7 +24,7 @@ interface FileTextRendererProps {
     onClearAll: () => void;
 }
 
-export const FileTextRenderer = ({ data, uncheckItem, onClearAll }: FileTextRendererProps) => {
+export const FileTextRenderer = ({data, uncheckItem, onClearAll}: FileTextRendererProps) => {
     const [files, setFiles] = useState<FileInfo[]>([]);
     const [selectedFilePath, setSelectedFilePath] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
@@ -45,7 +45,7 @@ export const FileTextRenderer = ({ data, uncheckItem, onClearAll }: FileTextRend
     useEffect(() => {
         const getSystemPrompts = async () => {
             try {
-                const content = await readTextFile(PROMPTS_PATH, { baseDir: BASE_DIR });
+                const content = await readTextFile(PROMPTS_PATH, {baseDir: BASE_DIR});
                 const prompts = content ? JSON.parse(content) : [];
                 if (Array.isArray(prompts)) {
                     setSystemPrompts(prompts);
@@ -186,7 +186,7 @@ export const FileTextRenderer = ({ data, uncheckItem, onClearAll }: FileTextRend
                 title: 'Content Copied',
                 message: `Successfully copied ~${currentTokens.toLocaleString()} tokens to clipboard.`,
                 color: 'green',
-                icon: <IconCheck size={18} />,
+                icon: <IconCheck size={18}/>,
             });
         } catch {
             notifications.show({
@@ -199,31 +199,31 @@ export const FileTextRenderer = ({ data, uncheckItem, onClearAll }: FileTextRend
 
     return (
         <Flex gap="md" h="100%" pos="relative">
-            <LoadingOverlay visible={isLoading} overlayProps={{ radius: 'sm', blur: 2 }} />
-            <Box w={isPreviewVisible ? '45%' : '100%'} miw={isPreviewVisible ? 400 : undefined}>
+            <LoadingOverlay overlayProps={{radius: 'sm', blur: 2}} visible={isLoading}/>
+            <Box miw={isPreviewVisible ? 400 : undefined} w={isPreviewVisible ? '45%' : '100%'}>
                 <ContentComposer
                     files={files}
-                    systemPrompts={systemPrompts}
                     selectedFile={selectedFile}
-                    userPrompt={userPrompt}
                     selectedSystemPromptId={selectedSystemPromptId}
-                    onFileSelect={handleFileSelect}
-                    onUncheckItem={uncheckItem}
-                    onCopyAll={handleCopyAll}
-                    onReloadContent={handleReloadContent}
-                    onClearAll={onClearAll}
-                    setUserPrompt={setUserPrompt}
                     setSelectedSystemPromptId={setSelectedSystemPromptId}
+                    setUserPrompt={setUserPrompt}
+                    systemPrompts={systemPrompts}
                     totalTokens={composedTotalTokens}
+                    userPrompt={userPrompt}
+                    onClearAll={onClearAll}
+                    onCopyAll={handleCopyAll}
+                    onFileSelect={handleFileSelect}
+                    onReloadContent={handleReloadContent}
                     onShowPreview={() => setIsPreviewVisible(true)}
+                    onUncheckItem={uncheckItem}
                 />
             </Box>
             {isPreviewVisible && (
-                <Box style={{ flex: 1, minWidth: 0 }}>
+                <Box style={{flex: 1, minWidth: 0}}>
                     <FileViewer
                         key={selectedFile?.path ?? 'empty-viewer'}
-                        selectedFile={selectedFile}
                         isEmpty={data.length === 0}
+                        selectedFile={selectedFile}
                         onClose={() => setIsPreviewVisible(false)}
                     />
                 </Box>
