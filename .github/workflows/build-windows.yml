@@ -1,4 +1,4 @@
-name: Build and Release Windows Application
+name: Build Windows Application
 
 on:
   push:
@@ -9,8 +9,7 @@ permissions:
   contents: write
 
 jobs:
-  release:
-    if: "!contains(github.event.head_commit.message, 'chore(release):')"
+  build:
     runs-on: windows-latest
 
     steps:
@@ -23,33 +22,6 @@ jobs:
           node-version: 20
           cache: 'npm'
 
-      - name: Install frontend dependencies
-        run: npm install
-
-      - name: Bump application version
-        id: bump_version
-        shell: pwsh
-        run: |
-          $packageJsonPath = "package.json"
-          $packageJsonContent = Get-Content $packageJsonPath -Raw
-          $versionPattern = '("version":\s*")(\d+\.\d+\.\d+)(")'
-          $match = [regex]::Match($packageJsonContent, $versionPattern)
-          $currentVersion = $match.Groups[2].Value
-          $versionParts = $currentVersion.Split('.')
-          $versionParts[2] = [int]$versionParts[2] + 1
-          $newVersion = $versionParts -join "."
-          Write-Host "Bumping version from $currentVersion to $newVersion"
-          
-          $packageJsonContent.Replace($currentVersion, $newVersion) | Set-Content $packageJsonPath
-          
-          $tauriConfPath = "src-tauri\tauri.conf.json"
-          (Get-Content $tauriConfPath -Raw) -replace $versionPattern, "`$1$newVersion`$3" | Set-Content $tauriConfPath
-          
-          echo "NEW_VERSION=$newVersion" >> $env:GITHUB_OUTPUT
-
-      - name: Update package-lock.json
-        run: npm install
-
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
@@ -58,34 +30,41 @@ jobs:
         with:
           workspaces: './src-tauri -> target'
 
-      # - name: Setup Windows code signing
-      #   if: github.ref == 'refs/heads/release'
-      #   env:
-      #     WINDOWS_CERTIFICATE_PFX: ${{ secrets.WINDOWS_CERTIFICATE_PFX }}
-      #     WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
-      #   run: |
-      #     echo $env:WINDOWS_CERTIFICATE_PFX | base64 --decode > certificate.pfx
-      #     Import-PfxCertificate -FilePath certificate.pfx -CertStoreLocation Cert:\CurrentUser\My -Password (ConvertTo-SecureString -String $env:WINDOWS_CERTIFICATE_PASSWORD -AsPlainText -Force)
-      #     Remove-Item certificate.pfx
+      - name: Install frontend dependencies
+        run: npm install
+
+      - name: Bump Version
+        shell: pwsh
+        run: |
+          $packageJsonPath = "package.json"
+          $versionPattern = '("version":\s*")(\d+\.\d+\.\d+)(")'
+          
+          $packageJsonContent = Get-Content $packageJsonPath -Raw
+          $match = [regex]::Match($packageJsonContent, $versionPattern)
+          if (-not $match.Success) {
+            throw "Version pattern not found in package.json"
+          }
+          $currentVersion = $match.Groups[2].Value
+          
+          $versionParts = $currentVersion.Split('.')
+          $versionParts[2] = [int]$versionParts[2] + 1
+          $newVersion = $versionParts -join "."
+          
+          Write-Host "Bumping version from $currentVersion to $newVersion"
+          
+          # Use a targeted regex replace to only change the application version
+          (Get-Content $packageJsonPath -Raw) -replace $versionPattern, "`${1}${newVersion}`${3}" | Set-Content $packageJsonPath
+          
+          $tauriConfPath = "src-tauri\tauri.conf.json"
+          (Get-Content $tauriConfPath -Raw) -replace $versionPattern, "`${1}${newVersion}`${3}" | Set-Content $tauriConfPath
 
       - name: Build and release
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          # TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: app-v__VERSION__
           releaseName: 'App v__VERSION__'
           releaseBody: 'See the assets to download this version and install.'
           releaseDraft: false
           prerelease: false
-
-      - name: Commit version bump
-        shell: pwsh
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add package.json package-lock.json src-tauri/tauri.conf.json
-          git commit -m "chore(release): bump version to v${{ steps.bump_version.outputs.NEW_VERSION }}"
-          git push
