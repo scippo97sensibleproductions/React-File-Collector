@@ -61,6 +61,7 @@ export const FileSearch = ({allFiles, checkedItems, onCheckItem}: FileSearchProp
 
     useEffect(() => {
         startTransition(() => {
+            // Filter and group logic remains unchanged
             const query = debouncedSearchQuery.trim();
             if (!query) {
                 setSearchResults(null);
@@ -87,8 +88,13 @@ export const FileSearch = ({allFiles, checkedItems, onCheckItem}: FileSearchProp
                 groups[groupInfo.label].files.push(file);
             }
 
-            const sortedGroups = Object.values(groups).sort((a, b) => a.label.localeCompare(b.label));
-            sortedGroups.forEach(group => group.files.sort((a, b) => a.label.localeCompare(b.label)));
+            const groupedFilesArray = Object.values(groups);
+
+            const sortedGroups = groupedFilesArray.toSorted((a, b) => a.label.localeCompare(b.label));
+
+            for (const group of sortedGroups) {
+                group.files.sort((a, b) => a.label.localeCompare(b.label));
+            }
 
             setSearchResults(sortedGroups);
             setActiveAccordionItems([]);

@@ -15,7 +15,6 @@ import {IconArchive, IconCheck, IconFiles, IconFolderOpen, IconRefresh, IconSear
 import {useEffect, useRef, useState} from "react";
 import {FileSearch} from "./FileSearch.tsx";
 import {VirtualizedFileTree} from "./VirtualizedFileTree.tsx";
-import type {DefinedTreeNode} from "../routes";
 import {ContextManager} from "./ContextManager.tsx";
 import {BaseDirectory, readTextFile} from "@tauri-apps/plugin-fs";
 import {useDebouncedValue, useMediaQuery} from "@mantine/hooks";
@@ -29,9 +28,11 @@ import {writeText} from "@tauri-apps/plugin-clipboard-manager";
 import {notifications} from "@mantine/notifications";
 import {PathDisplay} from "./PathDisplay.tsx";
 import type {SystemPromptItem} from "../models/SystemPromptItem.ts";
+import {DefinedTreeNode} from "../models/tree.ts";
 
-const PROMPTS_PATH = import.meta.env.VITE_SYSTEM_PROMPTS_PATH || 'FileCollector/system_prompts.json';
-const BASE_DIR = (Number(import.meta.env.VITE_FILE_BASE_PATH) || 21) as BaseDirectory;
+const PROMPTS_PATH = import.meta.env.VITE_SYSTEM_PROMPTS_PATH ?? 'FileCollector/system_prompts.json';
+const parsedBaseDir = parseInt(import.meta.env.VITE_FILE_BASE_PATH ?? '', 10);
+const BASE_DIR = (Number.isNaN(parsedBaseDir) ? 21 : parsedBaseDir) as BaseDirectory;
 const MAX_FILE_SIZE = 200_000;
 const LOADER_DELAY_MS = 300;
 
@@ -168,7 +169,7 @@ export const FileManager = ({
 
                 const dataPathSet = new Set(checkedFiles);
                 if (!selectedFilePath || !dataPathSet.has(selectedFilePath)) {
-                    setSelectedFilePath(newFiles.find(f => !f.error)?.path || null);
+                    setSelectedFilePath(newFiles.find(f => !f.error)?.path ?? null);
                 }
             } finally {
                 if (loadingTimerRef.current) {
@@ -187,12 +188,12 @@ export const FileManager = ({
         };
     }, [checkedFiles, reloadNonce, files.length, selectedFilePath]);
 
-    const selectedFile = files.find(f => f.path === selectedFilePath) || null;
+    const selectedFile = files.find(f => f.path === selectedFilePath) ?? null;
     const handleFileSelect = (file: FileInfo | null) => {
         setSelectedFilePath(file?.path ?? null);
     };
 
-    const fileTokens = files.reduce((acc, file) => acc + (file.tokenCount || 0), 0);
+    const fileTokens = files.reduce((acc, file) => acc + (file.tokenCount ?? 0), 0);
 
     const selectedPrompt = systemPrompts.find(p => p.id === selectedSystemPromptId);
 
@@ -221,7 +222,7 @@ export const FileManager = ({
                 filesToCopy.map(async (file) => {
                     try {
                         const content = await readTextFileWithDetectedEncoding(file.path);
-                        return `FILE PATH: ${file.path}\n\nCONTENT:\n\`\`\`${file.language || ''}\n${content}\n\`\`\``;
+                        return `FILE PATH: ${file.path}\n\nCONTENT:\n\`\`\`${file.language ?? ''}\n${content}\n\`\`\``;
                     } catch {
                         return `FILE PATH: ${file.path}\n\nCONTENT:\n\`\`\`\n--- ERROR READING FILE ---\n\`\`\``;
                     }

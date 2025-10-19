@@ -628,7 +628,7 @@ const languageData: FileTypeDefinition[] = [
 languageData.forEach(lang => {
     if (!lang.extensions) return;
 
-    const groupKey = specialNameOverrides[lang.name] || typeToGroupKeyMap[lang.type] || 'other';
+    const groupKey = specialNameOverrides[lang.name] ?? typeToGroupKeyMap[lang.type] ?? 'other';
 
     lang.extensions.forEach(ext => {
         const cleanExt = ext.startsWith('.') ? ext.substring(1) : ext;
@@ -655,6 +655,6 @@ export const getGroupInfoForFile = (fileName: string): FileGroupInfo => {
     }
 
     const extension = fileName.split('.').pop()?.toLowerCase() ?? '';
-    const groupKey = extensionToGroupKeyMap.get(extension) || 'other';
+    const groupKey = extensionToGroupKeyMap.get(extension) ?? 'other';
     return fileGroups[groupKey];
 };

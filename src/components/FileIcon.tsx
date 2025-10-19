@@ -69,7 +69,7 @@ export const FileIcon = ({name, isFolder, expanded}: FileIconProps) => {
     if (name.startsWith('.git')) specialName = 'gitignore';
     if (name.includes('vite.config')) specialName = 'vite';
 
-    const iconInfo = fileIconMap[specialName] || fileIconMap[extension];
+    const iconInfo = fileIconMap[specialName] ?? fileIconMap[extension];
 
     if (iconInfo) {
         return <span style={{color: iconInfo.color}}>{iconInfo.icon}</span>;

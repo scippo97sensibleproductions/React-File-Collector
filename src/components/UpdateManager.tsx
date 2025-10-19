@@ -101,11 +101,11 @@ export const UpdateManager = () => {
                     <Group justify="space-between">
                         <Box>
                             <Text fw={500}>Current Version</Text>
-                            <Text c="dimmed" ff="monospace" size="sm">{state.currentVersion || 'N/A'}</Text>
+                            <Text c="dimmed" ff="monospace" size="sm">{state.currentVersion ?? 'N/A'}</Text>
                         </Box>
                         <Box>
                             <Text fw={500} ta="right">Latest Version</Text>
-                            <Text c="dimmed" ff="monospace" size="sm">{state.latestVersionInfo?.tagName || 'N/A'}</Text>
+                            <Text c="dimmed" ff="monospace" size="sm">{state.latestVersionInfo?.tagName ?? 'N/A'}</Text>
                         </Box>
                     </Group>
 

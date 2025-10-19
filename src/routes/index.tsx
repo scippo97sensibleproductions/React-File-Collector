@@ -1,170 +1,142 @@
-import {Box} from "@mantine/core";
 import {createFileRoute} from '@tanstack/react-router';
-import {open} from '@tauri-apps/plugin-dialog';
-import {useState} from "react";
-import {BaseDirectory, DirEntry, readDir, readTextFile} from "@tauri-apps/plugin-fs";
+import {useCallback, useState} from "react";
+import {BaseDirectory, type DirEntry, readDir} from "@tauri-apps/plugin-fs";
 import {join} from "@tauri-apps/api/path";
-import {useDisclosure} from "@mantine/hooks";
-import {checkIgnore, processPattern} from "../helpers/GitIgnoreParser.ts";
+import {open as openDialog} from '@tauri-apps/plugin-dialog';
+import {shouldIgnore} from "../helpers/GitIgnoreParser.ts";
 import {FileManager} from "../components/FileManager.tsx";
 import type {GitIgnoreItem} from "../models/GitIgnoreItem.ts";
-import type {ProcessedPattern} from "../models/ProcessedPattern.ts";
+import {DefinedTreeNode} from "../models/tree.ts";
 
+const GITIGNORE_PATH = import.meta.env.VITE_GITIGNORE_PATH ?? 'FileCollector/gitignores.json';
+const parsedBaseDir = parseInt(import.meta.env.VITE_FILE_BASE_PATH ?? '', 10);
+const BASE_DIR = (Number.isNaN(parsedBaseDir) ? 21 : parsedBaseDir) as BaseDirectory;
 
-export type DefinedTreeNode = {
-    label: string;
-    value: string;
-    children?: DefinedTreeNode[];
-};
-
-type FlatFileNode = {
-    label: string;
-    value: string;
-}
-
-export const getGitIgnoreItems = async (): Promise<GitIgnoreItem[]> => {
+async function fetchGitIgnoreItems(): Promise<GitIgnoreItem[]> {
     try {
-        const path = import.meta.env.VITE_GITIGNORE_PATH;
-        const baseDir = (Number(import.meta.env.VITE_FILE_BASE_PATH) || 21) as BaseDirectory;
-        const fileContents = await readTextFile(path, {baseDir});
-        return JSON.parse(fileContents);
+        const {readTextFile, exists} = await import('@tauri-apps/plugin-fs');
+        const fileExists = await exists(GITIGNORE_PATH, {baseDir: BASE_DIR});
+        if (fileExists) {
+            const content = await readTextFile(GITIGNORE_PATH, {baseDir: BASE_DIR});
+            const items = JSON.parse(content);
+            return Array.isArray(items) ? items : [];
+        }
     } catch {
         return [];
     }
+    return [];
 }
 
-const getTreeNodesRecursive = async (path: string, relativePath: string, processedPatterns: ProcessedPattern[]): Promise<DefinedTreeNode[]> => {
-    const entries: DirEntry[] = await readDir(path);
+const buildFileTree = async (
+    currentPath: string,
+    gitIgnoreItems: GitIgnoreItem[]
+): Promise<{ tree: DefinedTreeNode[], allFiles: { label: string; value: string }[] }> => {
+    const entries: DirEntry[] = await readDir(currentPath);
+    const nodes: DefinedTreeNode[] = [];
+    let allFiles: { label: string; value: string }[] = [];
 
-    const nodePromises = entries.map(async (entry): Promise<DefinedTreeNode | null> => {
-        if (!entry.name) return null;
+    for (const entry of entries) {
+        const fullPath = await join(currentPath, entry.name);
 
-        const entryRelativePath = relativePath ? `${relativePath}/${entry.name}` : entry.name;
-        if (checkIgnore(processedPatterns, entryRelativePath)) return null;
-
-        const fullPath = await join(path, entry.name);
-
-        if (entry.isDirectory) {
-            const children = await getTreeNodesRecursive(fullPath, entryRelativePath, processedPatterns);
-            if (children.length === 0) return null;
-            return {label: entry.name, value: fullPath, children};
+        if (shouldIgnore(gitIgnoreItems, fullPath)) {
+            continue;
         }
 
-        return {label: entry.name, value: fullPath};
-    });
+        const node: DefinedTreeNode = {
+            value: fullPath,
+            label: entry.name,
+        };
 
-    const resolvedNodes = (await Promise.all(nodePromises)).filter((node): node is DefinedTreeNode => node !== null);
+        if (entry.isDirectory) {
+            const {tree: children, allFiles: childFiles} = await buildFileTree(fullPath, gitIgnoreItems);
+            if (children.length > 0) {
+                node.children = children;
+                nodes.push(node);
+                allFiles = allFiles.concat(childFiles);
+            }
+        } else {
+            nodes.push(node);
+            allFiles.push({label: node.label, value: node.value});
+        }
+    }
 
-    resolvedNodes.sort((a, b) => {
-        const aIsFolder = Array.isArray(a.children);
-        const bIsFolder = Array.isArray(b.children);
+    nodes.sort((a, b) => {
+        const aIsFolder = !!a.children;
+        const bIsFolder = !!b.children;
         if (aIsFolder !== bIsFolder) return aIsFolder ? -1 : 1;
         return a.label.localeCompare(b.label);
     });
 
-    return resolvedNodes;
+    return {tree: nodes, allFiles};
 };
 
-const collectFilePaths = (node: DefinedTreeNode): string[] => {
-    if (!node.children) {
-        return [node.value];
-    }
-    return node.children.flatMap(collectFilePaths);
-};
 
-const Index = () => {
+const IndexComponent = () => {
     const [path, setPath] = useState<string | null>(null);
-    const [treeNodeData, setTreeNodeData] = useState<DefinedTreeNode[]>([]);
-    const [allFiles, setAllFiles] = useState<FlatFileNode[]>([]);
-    const [isLoading, loadingHandlers] = useDisclosure(false);
+    const [treeData, setTreeData] = useState<DefinedTreeNode[]>([]);
+    const [allFiles, setAllFiles] = useState<{ label: string; value: string }[]>([]);
     const [checkedItems, setCheckedItems] = useState<string[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
 
-    const getFlatFiles = (nodes: DefinedTreeNode[]): FlatFileNode[] => {
-        let files: FlatFileNode[] = [];
-        for (const node of nodes) {
-            if (node.children) {
-                files = files.concat(getFlatFiles(node.children));
-            } else {
-                files.push({label: node.label, value: node.value});
-            }
-        }
-        return files;
-    };
-
-    const loadDirectoryTree = async (directoryPath: string) => {
-        loadingHandlers.open();
+    const loadDirectory = useCallback(async (selectedPath: string) => {
+        setIsLoading(true);
         try {
-            setPath(directoryPath);
+            const gitIgnoreItems = await fetchGitIgnoreItems();
+            const {tree, allFiles: foundFiles} = await buildFileTree(selectedPath, gitIgnoreItems);
+            setPath(selectedPath);
+            setTreeData(tree);
+            setAllFiles(foundFiles);
             setCheckedItems([]);
-            setTreeNodeData([]);
-            setAllFiles([]);
-
-            const gitignoreItems = await getGitIgnoreItems();
-            const patterns = gitignoreItems
-                .map(processPattern)
-                .filter((p): p is ProcessedPattern => p !== null);
-
-            const nodes = await getTreeNodesRecursive(directoryPath, '', patterns);
-            const flatFiles = getFlatFiles(nodes);
-            flatFiles.sort((a, b) => a.label.localeCompare(b.label));
-
-            setTreeNodeData(nodes);
-            setAllFiles(flatFiles);
         } finally {
-            loadingHandlers.close();
+            setIsLoading(false);
         }
-    };
+    }, []);
 
     const handleSelectFolder = async () => {
-        const selected = await open({multiple: false, directory: true});
+        const selected = await openDialog({directory: true, multiple: false});
         if (typeof selected === 'string') {
-            await loadDirectoryTree(selected);
+            await loadDirectory(selected);
         }
     };
 
-    const handleReloadTree = async () => {
+    const handleReloadTree = () => {
         if (path) {
-            await loadDirectoryTree(path);
+            loadDirectory(path);
         }
     };
 
     const handleNodeToggle = (node: DefinedTreeNode) => {
-        const pathsToToggle = collectFilePaths(node);
-        if (pathsToToggle.length === 0) return;
+        const collectFilePaths = (n: DefinedTreeNode): string[] => {
+            if (!n.children) return [n.value];
+            return n.children.flatMap(collectFilePaths);
+        };
+        const pathsToToggle = new Set(collectFilePaths(node));
+        const currentCheckedSet = new Set(checkedItems);
 
-        const checkedItemsSet = new Set(checkedItems);
-        const checkedDescendantCount = pathsToToggle.filter(path => checkedItemsSet.has(path)).length;
+        const allPathsPresent = Array.from(pathsToToggle).every(p => currentCheckedSet.has(p));
 
-        const shouldCheckAll = checkedDescendantCount < pathsToToggle.length;
-
-        setCheckedItems(currentCheckedItems => {
-            const newCheckedItemsSet = new Set(currentCheckedItems);
-            if (shouldCheckAll) {
-                pathsToToggle.forEach(path => newCheckedItemsSet.add(path));
-            } else {
-                pathsToToggle.forEach(path => newCheckedItemsSet.delete(path));
-            }
-            return Array.from(newCheckedItemsSet);
-        });
+        if (allPathsPresent) {
+            setCheckedItems(current => current.filter(p => !pathsToToggle.has(p)));
+        } else {
+            setCheckedItems(current => [...new Set([...current, ...Array.from(pathsToToggle)])]);
+        }
     };
 
     return (
-        <Box h="100%">
-            <FileManager
-                allFiles={allFiles}
-                checkedItems={checkedItems}
-                data={treeNodeData}
-                isLoading={isLoading}
-                path={path}
-                setCheckedItems={setCheckedItems}
-                onNodeToggle={handleNodeToggle}
-                onReloadTree={handleReloadTree}
-                onSelectFolder={handleSelectFolder}
-            />
-        </Box>
+        <FileManager
+            allFiles={allFiles}
+            checkedItems={checkedItems}
+            data={treeData}
+            isLoading={isLoading}
+            path={path}
+            setCheckedItems={setCheckedItems}
+            onNodeToggle={handleNodeToggle}
+            onReloadTree={handleReloadTree}
+            onSelectFolder={handleSelectFolder}
+        />
     );
 }
 
 export const Route = createFileRoute('/')({
-    component: Index,
-})
+    component: IndexComponent,
+});

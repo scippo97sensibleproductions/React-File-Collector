@@ -4,7 +4,7 @@ import {List, type RowComponentProps} from 'react-window';
 import {IconCaretDownFilled, IconCaretRightFilled, IconFolderOff} from '@tabler/icons-react';
 import {useElementSize} from '@mantine/hooks';
 import {FileIcon} from './FileIcon';
-import type {DefinedTreeNode} from '../routes';
+import {DefinedTreeNode} from "../models/tree.ts";
 
 interface FlatNode {
     id: string;

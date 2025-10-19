@@ -13,8 +13,9 @@ import {readTextFileWithDetectedEncoding} from "../helpers/EncodingManager.ts";
 import {useDebouncedValue} from "@mantine/hooks";
 import type {SystemPromptItem} from "../models/SystemPromptItem.ts";
 
-const PROMPTS_PATH = import.meta.env.VITE_SYSTEM_PROMPTS_PATH || 'FileCollector/system_prompts.json';
-const BASE_DIR = (Number(import.meta.env.VITE_FILE_BASE_PATH) || 21) as BaseDirectory;
+const PROMPTS_PATH = import.meta.env.VITE_SYSTEM_PROMPTS_PATH ?? 'FileCollector/system_prompts.json';
+const parsedBaseDir = parseInt(import.meta.env.VITE_FILE_BASE_PATH ?? '', 10);
+const BASE_DIR = (Number.isNaN(parsedBaseDir) ? 21 : parsedBaseDir) as BaseDirectory;
 const MAX_FILE_SIZE = 200_000;
 const LOADER_DELAY_MS = 300;
 
@@ -112,7 +113,7 @@ export const FileTextRenderer = ({data, uncheckItem, onClearAll}: FileTextRender
 
                 const dataPathSet = new Set(data);
                 if (!selectedFilePath || !dataPathSet.has(selectedFilePath)) {
-                    setSelectedFilePath(newFiles.find(f => !f.error)?.path || null);
+                    setSelectedFilePath(newFiles.find(f => !f.error)?.path ?? null);
                 }
             } finally {
                 if (loadingTimerRef.current) {
@@ -131,13 +132,13 @@ export const FileTextRenderer = ({data, uncheckItem, onClearAll}: FileTextRender
         };
     }, [data, reloadNonce, files.length, selectedFilePath]);
 
-    const selectedFile = files.find(f => f.path === selectedFilePath) || null;
+    const selectedFile = files.find(f => f.path === selectedFilePath) ?? null;
 
     const handleFileSelect = (file: FileInfo | null) => {
         setSelectedFilePath(file?.path ?? null);
     };
 
-    const fileTokens = files.reduce((acc, file) => acc + (file.tokenCount || 0), 0);
+    const fileTokens = files.reduce((acc, file) => acc + (file.tokenCount ?? 0), 0);
 
     const selectedPrompt = systemPrompts.find(p => p.id === selectedSystemPromptId);
 
@@ -166,7 +167,7 @@ export const FileTextRenderer = ({data, uncheckItem, onClearAll}: FileTextRender
                 filesToCopy.map(async (file) => {
                     try {
                         const content = await readTextFileWithDetectedEncoding(file.path);
-                        return `FILE PATH: ${file.path}\n\nCONTENT:\n\`\`\`${file.language || ''}\n${content}\n\`\`\``;
+                        return `FILE PATH: ${file.path}\n\nCONTENT:\n\`\`\`${file.language ?? ''}\n${content}\n\`\`\``;
                     } catch {
                         return `FILE PATH: ${file.path}\n\nCONTENT:\n\`\`\`\n--- ERROR READING FILE ---\n\`\`\``;
                     }

@@ -1,10 +1,11 @@
-import {useCallback, useState} from 'react';
-import {getVersion} from '@tauri-apps/api/app';
-import {fetch} from '@tauri-apps/plugin-http';
-import type {GitHubRelease} from '../models/GitHubRelease.ts';
+import { useState } from 'react';
+import { getVersion } from '@tauri-apps/api/app';
+import { fetch } from '@tauri-apps/plugin-http';
+import type { GitHubRelease } from '../models/GitHubRelease.ts';
 
 const REPO_URL = import.meta.env.VITE_GITHUB_REPO_URL;
 const GITHUB_API_URL = `https://api.github.com/repos/${REPO_URL}/releases/latest`;
+const SEMVER_EXTRACT_REGEX = /^v?(\d+\.\d+\.\d+)/;
 
 export interface UpdateInfo {
     tagName: string;
@@ -20,27 +21,22 @@ export interface UpdateCheckState {
     lastChecked: Date | null;
 }
 
-const isVersionNewer = (latest: string, current: string): boolean => {
-    const semverRegex = /[0-9]+\.[0-9]+\.[0-9]+/;
-    const latestMatch = latest.match(semverRegex)?.[0];
-    const currentMatch = current.match(semverRegex)?.[0];
+function parseVersion(version: string): string | null {
+    const match = RegExp(SEMVER_EXTRACT_REGEX).exec(version);
+    return match ? match[1] : null;
+}
 
-    if (!latestMatch || !currentMatch) {
-        return false;
-    }
-
-    const latestParts = latestMatch.split('.').map(Number);
-    const currentParts = currentMatch.split('.').map(Number);
+function isVersionNewer(latest: string, current: string): boolean {
+    const latestParts = latest.split('.').map(Number);
+    const currentParts = current.split('.').map(Number);
 
     for (let i = 0; i < 3; i++) {
-        const latestPart = latestParts[i];
-        const currentPart = currentParts[i];
-        if (latestPart > currentPart) return true;
-        if (latestPart < currentPart) return false;
+        if (latestParts[i] > currentParts[i]) return true;
+        if (latestParts[i] < currentParts[i]) return false;
     }
 
     return false;
-};
+}
 
 const initialState: UpdateCheckState = {
     isLoading: false,
@@ -54,66 +50,52 @@ const initialState: UpdateCheckState = {
 export const useUpdateCheck = (log?: (message: string) => void) => {
     const [state, setState] = useState<UpdateCheckState>(initialState);
 
-    const check = useCallback(async () => {
+    const check = async () => {
         log?.('Starting update check...');
-        setState((s) => ({...s, isLoading: true, error: null}));
+        setState((s) => ({ ...s, isLoading: true, error: null }));
 
         try {
-            log?.('Fetching current application version...');
-            const current = await getVersion();
-            setState((s) => ({...s, currentVersion: current}));
-            log?.(`Current version identified: ${current}`);
+            const currentVersionTag = await getVersion();
+            log?.(`Current version identified: ${currentVersionTag}`);
 
-            log?.(`Fetching latest release data from: ${GITHUB_API_URL}`);
             const response = await fetch(GITHUB_API_URL, {
                 method: 'GET',
-                headers: {'User-Agent': 'FileCollector-App-Updater'},
+                headers: { 'User-Agent': 'FileCollector-App-Updater' },
             });
 
-            const responseData = (await response.json()) as unknown;
-
             if (!response.ok) {
-                const errorMessage = (responseData as { message?: string })?.message ?? 'No message.';
-                const errorMsg = `GitHub API request failed with status: ${response.status}. Message: ${errorMessage}`;
-                log?.(`Error: ${errorMsg}`);
-                throw new Error(errorMsg);
+                const responseData = (await response.json()) as { message?: string };
+                throw new Error(`GitHub API request failed: ${response.status} - ${responseData.message ?? 'No message'}`);
             }
 
-            const latestRelease = responseData as GitHubRelease;
+            const latestRelease = await response.json() as GitHubRelease;
             log?.(`Successfully fetched release data. Latest tag: ${latestRelease.tag_name}`);
 
-            if (!latestRelease?.tag_name) {
-                const errorMsg = 'Latest release data is missing a tag_name.';
-                log?.(`Error: ${errorMsg}`);
-                throw new Error(errorMsg);
+            const latestVersionTag = latestRelease.tag_name;
+            if (!latestVersionTag) {
+                throw new Error('Latest release data is missing a tag_name.');
             }
 
-            const latest = latestRelease.tag_name;
-            const isNewer = isVersionNewer(latest, current);
-            log?.(`Comparing versions: ${latest} (latest) vs ${current} (current). Is newer? ${isNewer}`);
+            const currentVersion = parseVersion(currentVersionTag);
+            const latestVersion = parseVersion(latestVersionTag);
 
-            setState((s) => ({
-                ...s,
-                isLoading: false,
+            if (!currentVersion || !latestVersion) {
+                throw new Error(`Failed to parse version strings. Current: "${currentVersionTag}", Latest: "${latestVersionTag}"`);
+            }
+
+            const isNewer = isVersionNewer(latestVersion, currentVersion);
+            log?.(`Comparing versions: ${latestVersion} (latest) vs ${currentVersion} (current). Is newer? ${isNewer}`);
+
+            setState({
+                ...initialState,
+                currentVersion: currentVersionTag,
                 isUpdateAvailable: isNewer,
-                latestVersionInfo: {tagName: latest, htmlUrl: latestRelease.html_url},
+                latestVersionInfo: { tagName: latestVersionTag, htmlUrl: latestRelease.html_url },
                 lastChecked: new Date(),
-            }));
-            log?.('Update check complete.');
-        } catch (err) {
-            let errorMessage: string;
-            if (err instanceof Error) {
-                errorMessage = err.message;
-            } else if (typeof err === 'string') {
-                errorMessage = err;
-            } else {
-                try {
-                    errorMessage = `A non-error object was thrown: ${JSON.stringify(err)}`;
-                } catch {
-                    errorMessage = 'An unknown, non-serializable error occurred.';
-                }
-            }
+            });
 
+        } catch (err) {
+            const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred.';
             log?.(`Update check failed: ${errorMessage}`);
             setState((s) => ({
                 ...s,
@@ -122,7 +104,7 @@ export const useUpdateCheck = (log?: (message: string) => void) => {
                 lastChecked: new Date(),
             }));
         }
-    }, [log]);
+    };
 
-    return {state, check};
+    return { state, check };
 };

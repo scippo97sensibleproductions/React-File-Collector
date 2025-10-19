@@ -40,5 +40,5 @@ export const getLanguage = (file: string): string => {
         xml: 'xml', xq: 'xquery', yml: 'yaml', yaml: 'yaml', zephir: 'zephir'
     };
 
-    return languageMap[extension] || 'plaintext';
+    return languageMap[extension] ?? 'plaintext';
 }

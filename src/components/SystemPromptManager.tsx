@@ -32,8 +32,9 @@ import {BaseDirectory, exists, readTextFile, writeTextFile,} from '@tauri-apps/p
 import {createFileEnsuringPath} from "../helpers/FileSystemManager.ts";
 import type {SystemPromptItem} from "../models/SystemPromptItem.ts";
 
-const PROMPTS_PATH = import.meta.env.VITE_SYSTEM_PROMPTS_PATH || 'FileCollector/system_prompts.json';
-const BASE_DIR = (Number(import.meta.env.VITE_FILE_BASE_PATH) || 21) as BaseDirectory;
+const PROMPTS_PATH = import.meta.env.VITE_SYSTEM_PROMPTS_PATH ?? 'FileCollector/system_prompts.json';
+const parsedBaseDir = parseInt(import.meta.env.VITE_FILE_BASE_PATH ?? '', 10);
+const BASE_DIR = (Number.isNaN(parsedBaseDir) ? 21 : parsedBaseDir) as BaseDirectory;
 const NEW_PROMPT_ID = 'new-prompt';
 
 export const SystemPromptManager = () => {

@@ -35,8 +35,9 @@ import {open as openDialog} from '@tauri-apps/plugin-dialog';
 import {createFileEnsuringPath} from "../helpers/FileSystemManager.ts";
 import type {GitIgnoreItem} from "../models/GitIgnoreItem.ts";
 
-const GITIGNORE_PATH = import.meta.env.VITE_GITIGNORE_PATH || 'FileCollector/gitignores.json';
-const BASE_DIR = (Number(import.meta.env.VITE_FILE_BASE_PATH) || 21) as BaseDirectory;
+const GITIGNORE_PATH = import.meta.env.VITE_GITIGNORE_PATH ?? 'FileCollector/gitignores.json';
+const parsedBaseDir = parseInt(import.meta.env.VITE_FILE_BASE_PATH ?? '', 10);
+const BASE_DIR = (Number.isNaN(parsedBaseDir) ? 21 : parsedBaseDir) as BaseDirectory;
 
 export const GitIgnoreManager = () => {
     const theme = useMantineTheme();
