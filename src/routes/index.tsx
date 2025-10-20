@@ -1,16 +1,27 @@
 import {createFileRoute} from '@tanstack/react-router';
-import {useCallback, useState} from "react";
+import {useCallback, useEffect, useRef, useState} from "react";
 import {BaseDirectory, type DirEntry, readDir} from "@tauri-apps/plugin-fs";
 import {join} from "@tauri-apps/api/path";
 import {open as openDialog} from '@tauri-apps/plugin-dialog';
-import {shouldIgnore} from "../helpers/GitIgnoreParser.ts";
 import {FileManager} from "../components/FileManager.tsx";
 import type {GitIgnoreItem} from "../models/GitIgnoreItem.ts";
 import {DefinedTreeNode} from "../models/tree.ts";
+import IgnoreWorker from '../workers/ignore.worker.ts?worker';
 
 const GITIGNORE_PATH = import.meta.env.VITE_GITIGNORE_PATH ?? 'FileCollector/gitignores.json';
 const parsedBaseDir = parseInt(import.meta.env.VITE_FILE_BASE_PATH ?? '', 10);
 const BASE_DIR = (Number.isNaN(parsedBaseDir) ? 21 : parsedBaseDir) as BaseDirectory;
+
+interface WorkerEntry {
+    path: string;
+    name: string;
+    isDirectory: boolean;
+}
+
+interface FilterResult {
+    files: WorkerEntry[];
+    dirs: WorkerEntry[];
+}
 
 async function fetchGitIgnoreItems(): Promise<GitIgnoreItem[]> {
     try {
@@ -27,50 +38,6 @@ async function fetchGitIgnoreItems(): Promise<GitIgnoreItem[]> {
     return [];
 }
 
-const buildFileTree = async (
-    currentPath: string,
-    gitIgnoreItems: GitIgnoreItem[]
-): Promise<{ tree: DefinedTreeNode[], allFiles: { label: string; value: string }[] }> => {
-    const entries: DirEntry[] = await readDir(currentPath);
-    const nodes: DefinedTreeNode[] = [];
-    let allFiles: { label: string; value: string }[] = [];
-
-    for (const entry of entries) {
-        const fullPath = await join(currentPath, entry.name);
-
-        if (shouldIgnore(gitIgnoreItems, fullPath)) {
-            continue;
-        }
-
-        const node: DefinedTreeNode = {
-            value: fullPath,
-            label: entry.name,
-        };
-
-        if (entry.isDirectory) {
-            const {tree: children, allFiles: childFiles} = await buildFileTree(fullPath, gitIgnoreItems);
-            if (children.length > 0) {
-                node.children = children;
-                nodes.push(node);
-                allFiles = allFiles.concat(childFiles);
-            }
-        } else {
-            nodes.push(node);
-            allFiles.push({label: node.label, value: node.value});
-        }
-    }
-
-    nodes.sort((a, b) => {
-        const aIsFolder = !!a.children;
-        const bIsFolder = !!b.children;
-        if (aIsFolder !== bIsFolder) return aIsFolder ? -1 : 1;
-        return a.label.localeCompare(b.label);
-    });
-
-    return {tree: nodes, allFiles};
-};
-
-
 const IndexComponent = () => {
     const [path, setPath] = useState<string | null>(null);
     const [treeData, setTreeData] = useState<DefinedTreeNode[]>([]);
@@ -78,19 +45,100 @@ const IndexComponent = () => {
     const [checkedItems, setCheckedItems] = useState<string[]>([]);
     const [isLoading, setIsLoading] = useState(false);
 
+    const workerRef = useRef<Worker | null>(null);
+    const jobCounterRef = useRef(0);
+    const pendingJobsRef = useRef(new Map<number, (result: FilterResult) => void>());
+
+    useEffect(() => {
+        const worker = new IgnoreWorker();
+        workerRef.current = worker;
+
+        worker.onmessage = (event: MessageEvent<{ id: number; result: FilterResult }>) => {
+            const {id, result} = event.data;
+            const pendingJobs = pendingJobsRef.current;
+            if (pendingJobs.has(id)) {
+                const resolve = pendingJobs.get(id);
+                resolve?.(result);
+                pendingJobs.delete(id);
+            }
+        };
+
+        return () => {
+            worker.terminate();
+        };
+    }, []);
+
+    const filterEntriesWithWorker = useCallback((entries: WorkerEntry[], gitIgnoreItems: GitIgnoreItem[]): Promise<FilterResult> => {
+        const id = jobCounterRef.current++;
+        const worker = workerRef.current;
+        if (!worker) return Promise.resolve({files: [], dirs: []});
+
+        return new Promise((resolve) => {
+            pendingJobsRef.current.set(id, resolve);
+            worker.postMessage({
+                id,
+                entries,
+                gitIgnoreItems,
+            });
+        });
+    }, []);
+
+    const buildFileTree = useCallback(async (currentPath: string, gitIgnoreItems: GitIgnoreItem[]): Promise<{ tree: DefinedTreeNode[], allFiles: { label: string; value: string }[] }> => {
+        const entries: DirEntry[] = await readDir(currentPath);
+
+        const workerEntries = await Promise.all(
+            entries.map(async (entry) => ({
+                name: entry.name,
+                isDirectory: entry.isDirectory,
+                path: await join(currentPath, entry.name),
+            }))
+        );
+
+        const {files: filteredFiles, dirs: filteredDirs} = await filterEntriesWithWorker(workerEntries, gitIgnoreItems);
+
+        const allFoundFiles: { label: string; value: string }[] = filteredFiles.map(f => ({label: f.name, value: f.path}));
+        const nodes: DefinedTreeNode[] = filteredFiles.map(f => ({label: f.name, value: f.path}));
+
+        const subdirectoryPromises = filteredDirs.map(dir => buildFileTree(dir.path, gitIgnoreItems));
+        const subdirectoryResults = await Promise.all(subdirectoryPromises);
+
+        subdirectoryResults.forEach((result, index) => {
+            const dir = filteredDirs[index];
+            const {tree: children, allFiles: childFiles} = result;
+            if (children.length > 0) {
+                nodes.push({value: dir.path, label: dir.name, children});
+                allFoundFiles.push(...childFiles);
+            }
+        });
+
+        nodes.sort((a, b) => {
+            const aIsFolder = !!a.children;
+            const bIsFolder = !!b.children;
+            if (aIsFolder !== bIsFolder) return aIsFolder ? -1 : 1;
+            return a.label.localeCompare(b.label);
+        });
+
+        return {tree: nodes, allFiles: allFoundFiles};
+    }, [filterEntriesWithWorker]);
+
     const loadDirectory = useCallback(async (selectedPath: string) => {
         setIsLoading(true);
+        setPath(selectedPath);
+        setTreeData([]);
+        setAllFiles([]);
+        setCheckedItems([]);
+
         try {
             const gitIgnoreItems = await fetchGitIgnoreItems();
-            const {tree, allFiles: foundFiles} = await buildFileTree(selectedPath, gitIgnoreItems);
-            setPath(selectedPath);
+            const {tree, allFiles} = await buildFileTree(selectedPath, gitIgnoreItems);
             setTreeData(tree);
-            setAllFiles(foundFiles);
-            setCheckedItems([]);
+            setAllFiles(allFiles);
+        } catch (e) {
+            console.error("Failed to build file tree:", e);
         } finally {
             setIsLoading(false);
         }
-    }, []);
+    }, [buildFileTree]);
 
     const handleSelectFolder = async () => {
         const selected = await openDialog({directory: true, multiple: false});

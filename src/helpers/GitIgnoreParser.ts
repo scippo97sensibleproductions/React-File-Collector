@@ -115,7 +115,14 @@ export const checkIgnore = (processedPatterns: ProcessedPattern[], fullPath: str
     return true;
 };
 
+const processedPatternsCache = new Map<string, ProcessedPattern[]>();
+
 export const shouldIgnore = (items: GitIgnoreItem[], fullPath: string): boolean => {
-    const patterns = items.map(processPattern).filter((p): p is ProcessedPattern => p !== null);
+    const cacheKey = JSON.stringify(items);
+    if (!processedPatternsCache.has(cacheKey)) {
+        const patterns = items.map(processPattern).filter((p): p is ProcessedPattern => p !== null);
+        processedPatternsCache.set(cacheKey, patterns);
+    }
+    const patterns = processedPatternsCache.get(cacheKey)!;
     return checkIgnore(patterns, fullPath);
 };
