@@ -1,4 +1,4 @@
-name: Build Windows Application
+name: Build and Release Windows Application
 
 on:
   push:
@@ -19,9 +19,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          # This token is required to push the version bump commit back to the repository.
-          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -66,10 +63,17 @@ jobs:
           $tauriConfPath = "src-tauri\tauri.conf.json"
           (Get-Content $tauriConfPath -Raw) -replace $versionPattern, "`${1}${newVersion}`${3}" | Set-Content $tauriConfPath
 
-          $productName = (Get-Content $tauriConfPath -Raw | ConvertFrom-Json).productName
           echo "app_version=$newVersion" >> $env:GITHUB_OUTPUT
-          echo "product_name=$productName" >> $env:GITHUB_OUTPUT
           echo "release_tag=app-v$newVersion" >> $env:GITHUB_OUTPUT
+
+      - name: Get Package Info for Test Runs
+        id: test_package_info
+        if: github.event_name != 'push' || github.ref != 'refs/heads/release'
+        shell: pwsh
+        run: |
+          $packageJson = Get-Content -Raw ./package.json | ConvertFrom-Json
+          echo "app_version=$($packageJson.version)" >> $env:GITHUB_OUTPUT
+          echo "release_tag=app-v$($packageJson.version)-test" >> $env:GITHUB_OUTPUT
 
       - name: Commit and Push Version Bump
         if: github.event_name == 'push' && github.ref == 'refs/heads/release'
@@ -81,46 +85,20 @@ jobs:
           git commit -m "build: Bump version to ${{ steps.package_info.outputs.app_version }}"
           git push
 
-      - name: Get Package Info for Test Runs
-        id: test_package_info
-        if: github.event_name != 'push' || github.ref != 'refs/heads/release'
-        shell: pwsh
-        run: |
-          $packageJson = Get-Content -Raw ./package.json | ConvertFrom-Json
-          $tauriConf = Get-Content -Raw ./src-tauri/tauri.conf.json | ConvertFrom-Json
-          echo "app_version=$($packageJson.version)" >> $env:GITHUB_OUTPUT
-          echo "product_name=$($tauriConf.productName)" >> $env:GITHUB_OUTPUT
-          echo "release_tag=app-v$($packageJson.version)-test" >> $env:GITHUB_OUTPUT
-
-      - name: Build Application
-        run: npm run tauri build
-
-      - name: Create Portable Executable Archive
-        id: create_portable
-        shell: pwsh
-        run: |
-          $version = "${{ steps.package_info.outputs.app_version || steps.test_package_info.outputs.app_version }}"
-          $productName = "${{ steps.package_info.outputs.product_name || steps.test_package_info.outputs.product_name }}"
-          $exeName = "file_collector_react.exe"
-          $exePath = "src-tauri/target/release/$exeName"
-          $assetName = "$($productName.Replace(' ', ''))-Portable-v$version.zip"
-          
-          Compress-Archive -Path $exePath -DestinationPath $assetName -Force
-
-          echo "asset_name=$assetName" >> $env:GITHUB_OUTPUT
-          echo "asset_path=./$assetName" >> $env:GITHUB_OUTPUT
-
-      - name: Create or Update GitHub Release
-        id: create_release
+      - name: Build and Release with Tauri Action
+        uses: tauri-apps/tauri-action@v0
         if: github.event_name == 'push' && github.ref == 'refs/heads/release'
-        uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
-          tag_name: ${{ steps.package_info.outputs.release_tag }}
-          name: "App v${{ steps.package_info.outputs.app_version }}"
-          body: "See the assets to download this version and install."
-          draft: false
+          tagName: ${{ steps.package_info.outputs.release_tag }}
+          releaseName: "App v${{ steps.package_info.outputs.app_version }}"
+          releaseBody: "See the assets to download this version and install."
+          releaseDraft: false
           prerelease: false
-          files: |
-            src-tauri/target/release/bundle/msi/*.msi
-            src-tauri/target/release/bundle/nsis/*-setup.exe
-            ${{ steps.create_portable.outputs.asset_path }}
+
+      - name: Build for Test Runs
+        if: github.event_name != 'push' || github.ref != 'refs/heads/release'
+        run: npm run tauri build
