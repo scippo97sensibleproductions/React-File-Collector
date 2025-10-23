@@ -116,7 +116,7 @@ export const FileManager = ({
         if (!selectedFilePath || !checkedFilePaths.includes(selectedFilePath)) {
             setSelectedFilePath(newFiles.length > 0 ? newFiles[0].path : null);
         }
-    }, [checkedFilePaths]);
+    }, [checkedFilePaths, selectedFilePath]);
 
 
     const selectedFile = files.find(f => f.path === selectedFilePath) ?? null;
@@ -289,6 +289,7 @@ export const FileManager = ({
                     {isPreviewVisible && (
                         <Box h={{base: 'auto', md: '100%'}} style={{flex: 1, minWidth: 0}}>
                             <FileViewer
+                                key={selectedFile?.path ?? 'empty-viewer'}
                                 isEmpty={checkedFilePaths.length === 0}
                                 selectedFile={selectedFile}
                                 onClose={() => setIsPreviewVisible(false)}

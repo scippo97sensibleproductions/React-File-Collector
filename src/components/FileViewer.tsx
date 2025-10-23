@@ -51,15 +51,18 @@ export const FileViewer = ({selectedFile, isEmpty, onClose}: FileViewerProps) =>
     }, []);
 
     useEffect(() => {
-        if (loadingTimerRef.current) clearTimeout(loadingTimerRef.current);
-        setFileContent(null);
-        setFileError(null);
-        setHighlightedHtml(null);
-
-        if (!selectedFile) return;
+        if (!selectedFile) {
+            setIsLoading(false);
+            return;
+        }
 
         let isCancelled = false;
         const loadContent = async () => {
+            setIsLoading(true);
+            setFileContent(null);
+            setFileError(null);
+            setHighlightedHtml(null);
+
             try {
                 const content = await readTextFileWithDetectedEncoding(selectedFile.path);
                 if (!isCancelled) {
@@ -73,11 +76,11 @@ export const FileViewer = ({selectedFile, isEmpty, onClose}: FileViewerProps) =>
             }
         };
 
-        setIsLoading(true);
         loadContent();
 
         return () => {
             isCancelled = true;
+            if (loadingTimerRef.current) clearTimeout(loadingTimerRef.current);
         };
     }, [selectedFile]);
 
