@@ -4,19 +4,16 @@ import {
     Badge,
     Box,
     Group,
-    NavLink,
-    rgba,
     ScrollArea,
     Stack,
     Text,
     Tooltip,
-    useMantineColorScheme,
-    useMantineTheme,
 } from '@mantine/core';
-import {IconTrash, IconX} from '@tabler/icons-react';
+import {IconTrash} from '@tabler/icons-react';
 import type {FileInfo} from "../models/FileInfo.ts";
-import {FileIcon} from "./FileIcon.tsx";
 import {type FileGroupInfo, getGroupInfoForFile} from "../helpers/FileGroupManager.tsx";
+import {SelectedFileEntry} from "./SelectedFileEntry.tsx";
+import {useCallback, useEffect, useState} from "react";
 
 interface SelectedFileListProps {
     files: FileInfo[];
@@ -24,12 +21,12 @@ interface SelectedFileListProps {
     onFileSelect: (file: FileInfo | null) => void;
     onUncheckItem: (path: string) => void;
     onUncheckGroup?: (paths: string[]) => void;
+    onFileTokensChange: (total: number) => void;
 }
 
 interface FileGroup {
     groupInfo: FileGroupInfo;
     files: FileInfo[];
-    totalTokens: number;
 }
 
 export const SelectedFileList = ({
@@ -38,22 +35,31 @@ export const SelectedFileList = ({
                                      onFileSelect,
                                      onUncheckItem,
                                      onUncheckGroup,
+                                     onFileTokensChange
                                  }: SelectedFileListProps) => {
-    const theme = useMantineTheme();
-    const {colorScheme} = useMantineColorScheme();
+    const [tokenCounts, setTokenCounts] = useState<Record<string, number | null>>({});
+
+    const handleTokenCountCalculated = useCallback((path: string, count: number | null) => {
+        setTokenCounts(currentCounts => ({...currentCounts, [path]: count}));
+    }, []);
+
+    useEffect(() => {
+        const total = Object.values(tokenCounts).reduce((acc, count) => acc + (count ?? 0), 0);
+        onFileTokensChange(total);
+    }, [tokenCounts, onFileTokensChange]);
+
 
     const groups: Record<string, FileGroup> = {};
 
     for (const file of files) {
         const groupInfo = getGroupInfoForFile(file.path);
         if (!groups[groupInfo.key]) {
-            groups[groupInfo.key] = {groupInfo, files: [], totalTokens: 0};
+            groups[groupInfo.key] = {groupInfo, files: []};
         }
         groups[groupInfo.key].files.push(file);
-        groups[groupInfo.key].totalTokens += file.tokenCount ?? 0;
     }
 
-    const groupedFiles: FileGroup[] = Object.values(groups).sort((a, b) => b.totalTokens - a.totalTokens);
+    const groupedFiles: FileGroup[] = Object.values(groups).sort((a, b) => a.groupInfo.label.localeCompare(b.groupInfo.label));
 
     if (files.length === 0) {
         return (
@@ -63,12 +69,19 @@ export const SelectedFileList = ({
         );
     }
 
+    const calculateGroupTokens = (groupFiles: FileInfo[]) => {
+        return groupFiles.reduce((acc, file) => {
+            const count = tokenCounts[file.path];
+            return acc + (typeof count === 'number' ? count : 0);
+        }, 0);
+    };
+
     return (
         <Box style={{flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0}}>
             <Text fw={500} size="sm">Selected Files ({files.length})</Text>
             <ScrollArea mt="xs" style={{flex: 1}}>
                 <Accordion multiple defaultValue={groupedFiles.map(g => g.groupInfo.key)} variant="separated">
-                    {groupedFiles.map(({groupInfo, files: groupFiles, totalTokens}) => (
+                    {groupedFiles.map(({groupInfo, files: groupFiles}) => (
                         <Accordion.Item key={groupInfo.key} value={groupInfo.key}>
                             <Accordion.Control>
                                 <Group justify="space-between" wrap="nowrap">
@@ -78,65 +91,37 @@ export const SelectedFileList = ({
                                     </Group>
                                     <Group align="center" gap="xs" wrap="nowrap">
                                         <Text c="dimmed" ff="monospace" size="xs">
-                                            ~{totalTokens.toLocaleString()}
+                                            ~{calculateGroupTokens(groupFiles).toLocaleString()}
                                         </Text>
                                         <Badge color={groupInfo.color} variant="light">{groupFiles.length}</Badge>
-                                        {onUncheckGroup && (
-                                            <Tooltip label={`Remove all ${groupInfo.label} files`}>
-                                                <ActionIcon
-                                                    color="red"
-                                                    size="sm"
-                                                    variant="subtle"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        onUncheckGroup(groupFiles.map(f => f.path));
-                                                    }}
-                                                >
-                                                    <IconTrash size={16}/>
-                                                </ActionIcon>
-                                            </Tooltip>
-                                        )}
                                     </Group>
                                 </Group>
                             </Accordion.Control>
                             <Accordion.Panel>
                                 <Stack gap={0}>
+                                    {onUncheckGroup && (
+                                        <Group justify="flex-end" pb="xs" pr={4}>
+                                            <Tooltip label={`Remove all ${groupInfo.label} files`}>
+                                                <ActionIcon
+                                                    color="red"
+                                                    size="sm"
+                                                    variant="subtle"
+                                                    onClick={() => onUncheckGroup(groupFiles.map(f => f.path))}
+                                                >
+                                                    <IconTrash size={16}/>
+                                                </ActionIcon>
+                                            </Tooltip>
+                                        </Group>
+                                    )}
                                     {groupFiles.map((file) => (
-                                        <Box
+                                        <SelectedFileEntry
                                             key={file.path}
-                                            style={{
-                                                backgroundColor: file.error
-                                                    ? (colorScheme === 'dark' ? rgba(theme.colors.red[9], 0.2) : theme.colors.red[0])
-                                                    : undefined,
-                                            }}
-                                        >
-                                            <NavLink
-                                                active={selectedFile?.path === file.path}
-                                                color={file.error ? 'red' : theme.primaryColor}
-                                                description={file.error ? 'Error reading file' : `~${(file.tokenCount ?? 0).toLocaleString()} tokens`}
-                                                label={
-                                                    <Tooltip withArrow label={file.path} position="bottom-start">
-                                                        <Text truncate="end">{file.path.split(/[\\/]/).pop()}</Text>
-                                                    </Tooltip>
-                                                }
-                                                leftSection={<FileIcon expanded={false} isFolder={false}
-                                                                       name={file.path}/>}
-                                                rightSection={
-                                                    <ActionIcon
-                                                        aria-label="uncheckFile"
-                                                        c="dimmed"
-                                                        variant="transparent"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            onUncheckItem(file.path);
-                                                        }}
-                                                    >
-                                                        <IconX size={16}/>
-                                                    </ActionIcon>
-                                                }
-                                                onClick={() => onFileSelect(selectedFile?.path === file.path ? null : file)}
-                                            />
-                                        </Box>
+                                            file={file}
+                                            isSelected={selectedFile?.path === file.path}
+                                            onSelect={onFileSelect}
+                                            onTokenCountCalculated={handleTokenCountCalculated}
+                                            onUncheck={onUncheckItem}
+                                        />
                                     ))}
                                 </Stack>
                             </Accordion.Panel>

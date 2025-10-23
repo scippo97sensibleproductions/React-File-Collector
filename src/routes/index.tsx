@@ -84,7 +84,13 @@ const IndexComponent = () => {
     }, []);
 
     const buildFileTree = useCallback(async (currentPath: string, gitIgnoreItems: GitIgnoreItem[]): Promise<{ tree: DefinedTreeNode[], allFiles: { label: string; value: string }[] }> => {
-        const entries: DirEntry[] = await readDir(currentPath);
+        let entries: DirEntry[];
+        try {
+            entries = await readDir(currentPath);
+        } catch (e) {
+            console.warn(`Failed to read directory ${currentPath}:`, e);
+            return { tree: [], allFiles: [] };
+        }
 
         const workerEntries = await Promise.all(
             entries.map(async (entry) => ({
@@ -99,17 +105,14 @@ const IndexComponent = () => {
         const allFoundFiles: { label: string; value: string }[] = filteredFiles.map(f => ({label: f.name, value: f.path}));
         const nodes: DefinedTreeNode[] = filteredFiles.map(f => ({label: f.name, value: f.path}));
 
-        const subdirectoryPromises = filteredDirs.map(dir => buildFileTree(dir.path, gitIgnoreItems));
-        const subdirectoryResults = await Promise.all(subdirectoryPromises);
-
-        subdirectoryResults.forEach((result, index) => {
-            const dir = filteredDirs[index];
-            const {tree: children, allFiles: childFiles} = result;
+        for (const dir of filteredDirs) {
+            const result = await buildFileTree(dir.path, gitIgnoreItems);
+            const { tree: children, allFiles: childFiles } = result;
             if (children.length > 0) {
-                nodes.push({value: dir.path, label: dir.name, children});
+                nodes.push({ value: dir.path, label: dir.name, children });
                 allFoundFiles.push(...childFiles);
             }
-        });
+        }
 
         nodes.sort((a, b) => {
             const aIsFolder = !!a.children;

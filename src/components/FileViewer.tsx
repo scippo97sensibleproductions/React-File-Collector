@@ -17,6 +17,8 @@ interface FileViewerProps {
 }
 
 export const FileViewer = ({selectedFile, isEmpty, onClose}: FileViewerProps) => {
+    const [fileContent, setFileContent] = useState<{ content: string; language: string } | null>(null);
+    const [fileError, setFileError] = useState<string | null>(null);
     const [highlightedHtml, setHighlightedHtml] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [isWorkerReady, setIsWorkerReady] = useState(false);
@@ -38,31 +40,49 @@ export const FileViewer = ({selectedFile, isEmpty, onClose}: FileViewerProps) =>
                 return;
             }
 
-            if (loadingTimerRef.current) {
-                clearTimeout(loadingTimerRef.current);
-            }
+            if (loadingTimerRef.current) clearTimeout(loadingTimerRef.current);
             setIsLoading(false);
 
-            if (event.data.error) {
-                setHighlightedHtml(null);
-            } else {
-                setHighlightedHtml(event.data.html);
-            }
+            setHighlightedHtml(event.data.error ? null : event.data.html);
         };
 
         worker.addEventListener('message', messageHandler);
-
-        return () => {
-            worker.terminate();
-        };
+        return () => worker.terminate();
     }, []);
 
     useEffect(() => {
-        if (loadingTimerRef.current) {
-            clearTimeout(loadingTimerRef.current);
-        }
+        if (loadingTimerRef.current) clearTimeout(loadingTimerRef.current);
+        setFileContent(null);
+        setFileError(null);
+        setHighlightedHtml(null);
 
-        if (!selectedFile || !isWorkerReady || !workerRef.current) {
+        if (!selectedFile) return;
+
+        let isCancelled = false;
+        const loadContent = async () => {
+            try {
+                const content = await readTextFileWithDetectedEncoding(selectedFile.path);
+                if (!isCancelled) {
+                    setFileContent({content, language: selectedFile.language ?? 'plaintext'});
+                }
+            } catch (e) {
+                if (!isCancelled) {
+                    setFileError(e instanceof Error ? e.message : String(e));
+                    setIsLoading(false);
+                }
+            }
+        };
+
+        setIsLoading(true);
+        loadContent();
+
+        return () => {
+            isCancelled = true;
+        };
+    }, [selectedFile]);
+
+    useEffect(() => {
+        if (!fileContent || !isWorkerReady || !workerRef.current) {
             return;
         }
 
@@ -73,35 +93,16 @@ export const FileViewer = ({selectedFile, isEmpty, onClose}: FileViewerProps) =>
         jobCounterRef.current += 1;
         const currentJobId = `job-${jobCounterRef.current}`;
 
-        const loadAndHighlight = async () => {
-            try {
-                const content = await readTextFileWithDetectedEncoding(selectedFile.path);
-                if (currentJobId !== `job-${jobCounterRef.current}`) {
-                    return;
-                }
-                workerRef.current?.postMessage({
-                    code: content,
-                    language: selectedFile.language,
-                    jobId: currentJobId
-                });
-            } catch {
-                if (currentJobId === `job-${jobCounterRef.current}`) {
-                    if (loadingTimerRef.current) {
-                        clearTimeout(loadingTimerRef.current);
-                    }
-                    setIsLoading(false);
-                }
-            }
-        };
-
-        loadAndHighlight();
+        workerRef.current.postMessage({
+            code: fileContent.content,
+            language: fileContent.language,
+            jobId: currentJobId
+        });
 
         return () => {
-            if (loadingTimerRef.current) {
-                clearTimeout(loadingTimerRef.current);
-            }
+            if (loadingTimerRef.current) clearTimeout(loadingTimerRef.current);
         };
-    }, [selectedFile, isWorkerReady]);
+    }, [fileContent, isWorkerReady]);
 
     const renderContent = () => {
         if (isEmpty) {
@@ -132,13 +133,13 @@ export const FileViewer = ({selectedFile, isEmpty, onClose}: FileViewerProps) =>
                 <ScrollArea style={{flex: 1, position: 'relative'}}>
                     {isLoading && <Center inset={0} pos="absolute" style={{zIndex: 1}}><Loader/></Center>}
 
-                    {selectedFile.error && (
+                    {fileError && (
                         <Alert color="red" icon={<IconAlertCircle/>} title="Could Not Display File" variant="light">
-                            {selectedFile.error}
+                            {fileError}
                         </Alert>
                     )}
 
-                    {!selectedFile.error && highlightedHtml && (
+                    {!fileError && highlightedHtml && (
                         <Box
                             className="line-numbers"
                             dangerouslySetInnerHTML={{__html: `<pre><code>${highlightedHtml}</code></pre>`}}

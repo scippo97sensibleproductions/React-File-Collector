@@ -13,13 +13,14 @@ import {
     Tooltip,
     Typography,
 } from '@mantine/core';
-import {IconCopy, IconEye, IconRefresh, IconTrash, IconX} from '@tabler/icons-react';
+import {IconCopy, IconEye, IconTrash, IconX} from '@tabler/icons-react';
 import {useEffect, useState} from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import {SelectedFileList} from './SelectedFileList';
 import type {FileInfo} from "../models/FileInfo.ts";
 import type {SystemPromptItem} from "../models/SystemPromptItem.ts";
+import {estimateTokens} from "../helpers/TokenCounter.ts";
 
 interface ContentComposerProps {
     files: FileInfo[];
@@ -31,11 +32,9 @@ interface ContentComposerProps {
     onUncheckItem: (path: string) => void;
     onUncheckGroup?: (paths: string[]) => void;
     onCopyAll: () => void;
-    onReloadContent: () => void;
     onClearAll: () => void;
     setUserPrompt: (prompt: string) => void;
     setSelectedSystemPromptId: (id: string | null) => void;
-    totalTokens: number;
     onShowPreview: () => void;
 }
 
@@ -49,15 +48,15 @@ export const ContentComposer = ({
                                     onUncheckItem,
                                     onUncheckGroup,
                                     onCopyAll,
-                                    onReloadContent,
                                     onClearAll,
                                     setUserPrompt,
                                     setSelectedSystemPromptId,
-                                    totalTokens,
                                     onShowPreview
                                 }: ContentComposerProps) => {
     const hasFiles = files.length > 0;
     const [inputValue, setInputValue] = useState(userPrompt);
+    const [fileTokens, setFileTokens] = useState(0);
+    const [totalTokens, setTotalTokens] = useState(0);
 
     useEffect(() => {
         const handler = setTimeout(() => {
@@ -75,6 +74,14 @@ export const ContentComposer = ({
         setInputValue(userPrompt);
     }, [userPrompt]);
 
+    useEffect(() => {
+        const selectedPrompt = systemPrompts.find(p => p.id === selectedSystemPromptId);
+        const systemPromptTokens = selectedPrompt ? estimateTokens(selectedPrompt.content) : 0;
+        const userPromptTokens = estimateTokens(userPrompt);
+        setTotalTokens(fileTokens + systemPromptTokens + userPromptTokens);
+    }, [fileTokens, selectedSystemPromptId, userPrompt, systemPrompts]);
+
+
     return (
         <Paper withBorder h="100%" p="md" shadow="sm">
             <Stack gap="md" h="100%">
@@ -84,11 +91,6 @@ export const ContentComposer = ({
                         <Text c="dimmed" fw={500} size="xs">
                             ~{totalTokens.toLocaleString()} tokens
                         </Text>
-                        <Tooltip label="Reload content of selected files">
-                            <ActionIcon disabled={!hasFiles} size="sm" variant="light" onClick={onReloadContent}>
-                                <IconRefresh size={16}/>
-                            </ActionIcon>
-                        </Tooltip>
                         <Tooltip label="Clear all selected files">
                             <ActionIcon color="red" disabled={!hasFiles} size="sm" variant="light" onClick={onClearAll}>
                                 <IconTrash size={16}/>
@@ -132,6 +134,7 @@ export const ContentComposer = ({
                     files={files}
                     selectedFile={selectedFile}
                     onFileSelect={onFileSelect}
+                    onFileTokensChange={setFileTokens}
                     onUncheckGroup={onUncheckGroup}
                     onUncheckItem={onUncheckItem}
                 />
