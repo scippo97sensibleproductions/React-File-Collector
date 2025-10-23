@@ -44,7 +44,7 @@ export const SelectedFileList = ({
     }, []);
 
     useEffect(() => {
-        const total = Object.values(tokenCounts).reduce((acc, count) => acc + (count ?? 0), 0);
+        const total = Object.values(tokenCounts).reduce((acc: number, count: number | null) => acc + (count ?? 0), 0);
         onFileTokensChange(total);
     }, [tokenCounts, onFileTokensChange]);
 
