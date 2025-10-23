@@ -12,12 +12,12 @@ import {
     useMantineTheme
 } from "@mantine/core";
 import {IconArchive, IconCheck, IconFiles, IconFolderOpen, IconRefresh, IconSearch} from "@tabler/icons-react";
-import {useEffect, useRef, useState} from "react";
+import {useEffect, useMemo, useState} from "react";
 import {FileSearch} from "./FileSearch.tsx";
 import {VirtualizedFileTree} from "./VirtualizedFileTree.tsx";
 import {ContextManager} from "./ContextManager.tsx";
 import {BaseDirectory, readTextFile} from "@tauri-apps/plugin-fs";
-import {useDebouncedValue, useMediaQuery} from "@mantine/hooks";
+import {useMediaQuery} from "@mantine/hooks";
 import {getLanguage} from "../helpers/fileTypeManager.ts";
 import {estimateTokens} from "../helpers/TokenCounter.ts";
 import {readTextFileWithDetectedEncoding} from "../helpers/EncodingManager.ts";
@@ -33,8 +33,6 @@ import {DefinedTreeNode} from "../models/tree.ts";
 const PROMPTS_PATH = import.meta.env.VITE_SYSTEM_PROMPTS_PATH ?? 'FileCollector/system_prompts.json';
 const parsedBaseDir = parseInt(import.meta.env.VITE_FILE_BASE_PATH ?? '', 10);
 const BASE_DIR = (Number.isNaN(parsedBaseDir) ? 21 : parsedBaseDir) as BaseDirectory;
-const MAX_FILE_SIZE = 200_000;
-const LOADER_DELAY_MS = 300;
 
 interface FileManagerProps {
     data: DefinedTreeNode[];
@@ -67,11 +65,7 @@ export const FileManager = ({
     const [systemPrompts, setSystemPrompts] = useState<SystemPromptItem[]>([]);
     const [selectedSystemPromptId, setSelectedSystemPromptId] = useState<string | null>(null);
     const [userPrompt, setUserPrompt] = useState('');
-    const [reloadNonce, setReloadNonce] = useState(0);
-    const [debouncedUserPrompt] = useDebouncedValue(userPrompt, 1000);
-    const [composedTotalTokens, setComposedTotalTokens] = useState(0);
     const [isPreviewVisible, setIsPreviewVisible] = useState(false);
-    const loadingTimerRef = useRef<number | null>(null);
 
     const handleAddItem = (filePath: string) => {
         setCheckedItems(prevItems => Array.from(new Set(prevItems).add(filePath)));
@@ -94,10 +88,8 @@ export const FileManager = ({
         setCheckedItems([]);
     };
 
-    const allFilePaths = new Set(allFiles.map(file => file.value));
-    const checkedFiles = checkedItems.filter(item => allFilePaths.has(item));
-
-    const handleReloadContent = () => setReloadNonce(n => n + 1);
+    const allFilePaths = useMemo(() => new Set(allFiles.map(file => file.value)), [allFiles]);
+    const checkedFilePaths = useMemo(() => checkedItems.filter(item => allFilePaths.has(item)), [checkedItems, allFilePaths]);
 
     useEffect(() => {
         const getSystemPrompts = async () => {
@@ -115,116 +107,50 @@ export const FileManager = ({
     }, []);
 
     useEffect(() => {
-        if (loadingTimerRef.current) {
-            clearTimeout(loadingTimerRef.current);
+        const newFiles: FileInfo[] = checkedFilePaths.map(path => ({
+            path,
+            language: getLanguage(path),
+        }));
+        setFiles(newFiles);
+
+        if (!selectedFilePath || !checkedFilePaths.includes(selectedFilePath)) {
+            setSelectedFilePath(newFiles.length > 0 ? newFiles[0].path : null);
         }
+    }, [checkedFilePaths]);
 
-        const syncFiles = async () => {
-            if (checkedFiles.length === 0) {
-                if (files.length > 0) {
-                    setFiles([]);
-                    setSelectedFilePath(null);
-                }
-                setIsProcessing(false);
-                return;
-            }
-
-            loadingTimerRef.current = window.setTimeout(() => {
-                setIsProcessing(true);
-            }, LOADER_DELAY_MS);
-
-            try {
-                const filePromises = checkedFiles.map(async (path): Promise<FileInfo> => {
-                    try {
-                        const content = await readTextFileWithDetectedEncoding(path);
-                        if (content.length > MAX_FILE_SIZE) {
-                            return {
-                                path,
-                                error: `File is too large (over ${MAX_FILE_SIZE / 1000}k characters).`,
-                            };
-                        }
-                        return {
-                            path,
-                            language: getLanguage(path),
-                            tokenCount: estimateTokens(content),
-                        };
-                    } catch (e) {
-                        return {
-                            path,
-                            error: `Failed to read file: ${e instanceof Error ? e.message : String(e)}`,
-                        };
-                    }
-                });
-
-                const newFiles = await Promise.all(filePromises);
-                newFiles.sort((a, b) => {
-                    const aHasError = !!a.error;
-                    const bHasError = !!b.error;
-                    if (aHasError !== bHasError) {
-                        return aHasError ? -1 : 1;
-                    }
-                    return (b.tokenCount ?? 0) - (a.tokenCount ?? 0);
-                });
-                setFiles(newFiles);
-
-                const dataPathSet = new Set(checkedFiles);
-                if (!selectedFilePath || !dataPathSet.has(selectedFilePath)) {
-                    setSelectedFilePath(newFiles.find(f => !f.error)?.path ?? null);
-                }
-            } finally {
-                if (loadingTimerRef.current) {
-                    clearTimeout(loadingTimerRef.current);
-                }
-                setIsProcessing(false);
-            }
-        };
-
-        syncFiles();
-
-        return () => {
-            if (loadingTimerRef.current) {
-                clearTimeout(loadingTimerRef.current);
-            }
-        };
-    }, [checkedFiles, reloadNonce, files.length, selectedFilePath]);
 
     const selectedFile = files.find(f => f.path === selectedFilePath) ?? null;
     const handleFileSelect = (file: FileInfo | null) => {
         setSelectedFilePath(file?.path ?? null);
     };
 
-    const fileTokens = files.reduce((acc, file) => acc + (file.tokenCount ?? 0), 0);
-
     const selectedPrompt = systemPrompts.find(p => p.id === selectedSystemPromptId);
 
-    const systemPromptTokens = selectedPrompt ? estimateTokens(selectedPrompt.content) : 0;
-
-    useEffect(() => {
-        const userPromptTokens = estimateTokens(debouncedUserPrompt);
-        setComposedTotalTokens(systemPromptTokens + userPromptTokens + fileTokens);
-    }, [debouncedUserPrompt, fileTokens, systemPromptTokens]);
-
     const handleCopyAll = async () => {
-        const filesToCopy = files.filter(file => !file.error);
-        const systemPromptContent = selectedPrompt ? selectedPrompt.content : '';
-
-        if (filesToCopy.length === 0 && !userPrompt && !selectedPrompt) {
-            notifications.show({
-                title: 'No Content to Copy',
-                message: 'Select files or write a prompt to generate content.',
-                color: 'yellow',
-            });
-            return;
-        }
-
+        setIsProcessing(true);
         try {
+            const systemPromptContent = selectedPrompt ? selectedPrompt.content : '';
+            if (checkedFilePaths.length === 0 && !userPrompt && !systemPromptContent) {
+                notifications.show({
+                    title: 'No Content to Copy',
+                    message: 'Select files or write a prompt to generate content.',
+                    color: 'yellow',
+                });
+                return;
+            }
+
+            let totalTokens = 0;
+            totalTokens += selectedPrompt ? estimateTokens(selectedPrompt.content) : 0;
+            totalTokens += estimateTokens(userPrompt);
+
             const fileContents = await Promise.all(
-                filesToCopy.map(async (file) => {
+                checkedFilePaths.map(async (path) => {
                     try {
-                        const content = await readTextFileWithDetectedEncoding(file.path);
-                        return `FILE PATH: ${file.path}\n\nCONTENT:\n\`\`\`${file.language ?? ''}\n${content}\n\`\`\``;
+                        const content = await readTextFileWithDetectedEncoding(path);
+                        totalTokens += estimateTokens(content);
+                        return `FILE PATH: ${path}\n\nCONTENT:\n\`\`\`${getLanguage(path) ?? ''}\n${content}\n\`\`\``;
                     } catch {
-                        return `FILE PATH: ${file.path}\n\nCONTENT:\n\`\`\`\n--- ERROR READING FILE ---\n\`\`\``;
+                        return `FILE PATH: ${path}\n\nCONTENT:\n\`\`\`\n--- ERROR READING FILE ---\n\`\`\``;
                     }
                 })
             );
@@ -236,11 +162,9 @@ export const FileManager = ({
             const formattedContent = contentParts.join('\n\n---\n\n');
 
             await writeText(formattedContent);
-
-            const currentTokens = systemPromptTokens + estimateTokens(userPrompt) + fileTokens;
             notifications.show({
                 title: 'Content Copied',
-                message: `Successfully copied ~${currentTokens.toLocaleString()} tokens to clipboard.`,
+                message: `Successfully copied ~${totalTokens.toLocaleString()} tokens to clipboard.`,
                 color: 'green',
                 icon: <IconCheck size={18}/>,
             });
@@ -250,6 +174,8 @@ export const FileManager = ({
                 message: 'Could not write content to the clipboard.',
                 color: 'red',
             });
+        } finally {
+            setIsProcessing(false);
         }
     };
 
@@ -351,12 +277,10 @@ export const FileManager = ({
                             setSelectedSystemPromptId={setSelectedSystemPromptId}
                             setUserPrompt={setUserPrompt}
                             systemPrompts={systemPrompts}
-                            totalTokens={composedTotalTokens}
                             userPrompt={userPrompt}
                             onClearAll={handleClearAll}
                             onCopyAll={handleCopyAll}
                             onFileSelect={handleFileSelect}
-                            onReloadContent={handleReloadContent}
                             onShowPreview={() => setIsPreviewVisible(true)}
                             onUncheckGroup={handleRemoveGroupItems}
                             onUncheckItem={handleRemoveItem}
@@ -365,7 +289,7 @@ export const FileManager = ({
                     {isPreviewVisible && (
                         <Box h={{base: 'auto', md: '100%'}} style={{flex: 1, minWidth: 0}}>
                             <FileViewer
-                                isEmpty={checkedFiles.length === 0}
+                                isEmpty={checkedFilePaths.length === 0}
                                 selectedFile={selectedFile}
                                 onClose={() => setIsPreviewVisible(false)}
                             />
