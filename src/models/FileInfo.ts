@@ -1,7 +1,7 @@
 export interface FileInfo {
     path: string;
+    status: 'pending' | 'processing' | 'complete' | 'error';
     language?: string;
-    content?: string; // This remains for on-demand use like the viewer
     error?: string;
-    tokenCount?: number; // This will be populated by the list item component
+    tokenCount?: number;
 }

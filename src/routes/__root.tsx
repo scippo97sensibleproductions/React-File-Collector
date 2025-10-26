@@ -27,7 +27,7 @@ const UpdatePromptModal = () => {
     }
 
     return (
-        <Modal centered opened={isModalOpen} title={<Title order={4}>Update Available!</Title>} onClose={closeModal}>
+        <Modal centered opened={isModalOpen} title="Update Available!" onClose={closeModal}>
             <Stack gap="lg">
                 <Group>
                     <ThemeIcon gradient={{from: 'teal', to: 'blue'}} size="xl" variant="gradient">
