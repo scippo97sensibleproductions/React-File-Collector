@@ -7,6 +7,7 @@ import '@mantine/notifications/styles.css';
 import {routeTree} from './routeTree.gen';
 import {createTheme, localStorageColorSchemeManager, MantineProvider} from "@mantine/core";
 import {Notifications} from "@mantine/notifications";
+import {UpdaterProvider} from "./hooks/useUpdater.tsx";
 
 const theme = createTheme({
     fontFamily: 'Inter, sans-serif',
@@ -36,8 +37,10 @@ if (!rootElement.innerHTML) {
                 defaultColorScheme="dark"
                 theme={theme}
             >
-                <Notifications/>
-                <RouterProvider router={router}/>
+                <UpdaterProvider>
+                    <Notifications/>
+                    <RouterProvider router={router}/>
+                </UpdaterProvider>
             </MantineProvider>
         </StrictMode>,
     );
