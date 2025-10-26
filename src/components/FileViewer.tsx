@@ -16,7 +16,12 @@ interface FileViewerProps {
     onClose: () => void;
 }
 
-export const FileViewer = ({selectedFile, isEmpty, onClose}: FileViewerProps) => {
+interface FileViewerContentProps {
+    selectedFile: FileInfo | null;
+    isEmpty: boolean;
+}
+
+const FileViewerContent = ({selectedFile, isEmpty}: FileViewerContentProps) => {
     const [fileContent, setFileContent] = useState<{ content: string; language: string } | null>(null);
     const [fileError, setFileError] = useState<string | null>(null);
     const [highlightedHtml, setHighlightedHtml] = useState<string | null>(null);
@@ -52,17 +57,12 @@ export const FileViewer = ({selectedFile, isEmpty, onClose}: FileViewerProps) =>
 
     useEffect(() => {
         if (!selectedFile) {
-            setIsLoading(false);
             return;
         }
 
         let isCancelled = false;
         const loadContent = async () => {
             setIsLoading(true);
-            setFileContent(null);
-            setFileError(null);
-            setHighlightedHtml(null);
-
             try {
                 const content = await readTextFileWithDetectedEncoding(selectedFile.path);
                 if (!isCancelled) {
@@ -83,6 +83,7 @@ export const FileViewer = ({selectedFile, isEmpty, onClose}: FileViewerProps) =>
             if (loadingTimerRef.current) clearTimeout(loadingTimerRef.current);
         };
     }, [selectedFile]);
+
 
     useEffect(() => {
         if (!fileContent || !isWorkerReady || !workerRef.current) {
@@ -107,52 +108,52 @@ export const FileViewer = ({selectedFile, isEmpty, onClose}: FileViewerProps) =>
         };
     }, [fileContent, isWorkerReady]);
 
-    const renderContent = () => {
-        if (isEmpty) {
-            return (
-                <Center h="100%">
-                    <Stack align="center" gap="xs">
-                        <IconInfoCircle color="var(--mantine-color-gray-5)" size={48} stroke={1.5}/>
-                        <Text c="dimmed">Select files from the tree to begin.</Text>
-                    </Stack>
-                </Center>
-            );
-        }
-
-        if (!selectedFile) {
-            return (
-                <Center h="100%">
-                    <Stack align="center" gap="xs">
-                        <IconMessagePlus color="var(--mantine-color-gray-5)" size={48} stroke={1.5}/>
-                        <Text c="dimmed">Select a file to view its content.</Text>
-                    </Stack>
-                </Center>
-            );
-        }
-
+    if (isEmpty) {
         return (
-            <Stack gap="xs" h="100%">
-                <Code block c="dimmed" fz="xs">{selectedFile.path}</Code>
-                <ScrollArea style={{flex: 1, position: 'relative'}}>
-                    {isLoading && <Center inset={0} pos="absolute" style={{zIndex: 1}}><Loader/></Center>}
-
-                    {fileError && (
-                        <Alert color="red" icon={<IconAlertCircle/>} title="Could Not Display File" variant="light">
-                            {fileError}
-                        </Alert>
-                    )}
-
-                    {!fileError && highlightedHtml && (
-                        <Box
-                            className="line-numbers"
-                            dangerouslySetInnerHTML={{__html: `<pre><code>${highlightedHtml}</code></pre>`}}
-                        />
-                    )}
-                </ScrollArea>
-            </Stack>
+            <Center h="100%">
+                <Stack align="center" gap="xs">
+                    <IconInfoCircle color="var(--mantine-color-gray-5)" size={48} stroke={1.5}/>
+                    <Text c="dimmed">Select files from the tree to begin.</Text>
+                </Stack>
+            </Center>
         );
-    };
+    }
 
+    if (!selectedFile) {
+        return (
+            <Center h="100%">
+                <Stack align="center" gap="xs">
+                    <IconMessagePlus color="var(--mantine-color-gray-5)" size={48} stroke={1.5}/>
+                    <Text c="dimmed">Select a file to view its content.</Text>
+                </Stack>
+            </Center>
+        );
+    }
+
+    return (
+        <Stack gap="xs" h="100%">
+            <Code block c="dimmed" fz="xs">{selectedFile.path}</Code>
+            <ScrollArea style={{flex: 1, position: 'relative'}}>
+                {isLoading && <Center inset={0} pos="absolute" style={{zIndex: 1}}><Loader/></Center>}
+
+                {fileError && (
+                    <Alert color="red" icon={<IconAlertCircle/>} title="Could Not Display File" variant="light">
+                        {fileError}
+                    </Alert>
+                )}
+
+                {!fileError && highlightedHtml && (
+                    <Box
+                        className="line-numbers"
+                        dangerouslySetInnerHTML={{__html: `<pre><code>${highlightedHtml}</code></pre>`}}
+                    />
+                )}
+            </ScrollArea>
+        </Stack>
+    );
+};
+
+export const FileViewer = ({selectedFile, isEmpty, onClose}: FileViewerProps) => {
     return (
         <Paper
             withBorder
@@ -169,7 +170,11 @@ export const FileViewer = ({selectedFile, isEmpty, onClose}: FileViewerProps) =>
             >
                 <IconX size={16}/>
             </ActionIcon>
-            {renderContent()}
+            <FileViewerContent
+                key={selectedFile?.path ?? 'empty'}
+                isEmpty={isEmpty}
+                selectedFile={selectedFile}
+            />
         </Paper>
     );
 };

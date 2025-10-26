@@ -12,13 +12,12 @@ import {
     useMantineTheme
 } from "@mantine/core";
 import {IconArchive, IconCheck, IconFiles, IconFolderOpen, IconRefresh, IconSearch} from "@tabler/icons-react";
-import {useEffect, useRef, useState} from "react";
+import {useCallback, useEffect, useRef, useState} from "react";
 import {FileSearch} from "./FileSearch.tsx";
 import {VirtualizedFileTree} from "./VirtualizedFileTree.tsx";
 import {ContextManager} from "./ContextManager.tsx";
 import {BaseDirectory, readTextFile, stat} from "@tauri-apps/plugin-fs";
 import {useDebouncedValue, useMediaQuery} from "@mantine/hooks";
-import {getLanguage} from "../helpers/fileTypeManager.ts";
 import {estimateTokens} from "../helpers/TokenCounter.ts";
 import {readTextFileWithDetectedEncoding} from "../helpers/EncodingManager.ts";
 import type {FileInfo} from "../models/FileInfo.ts";
@@ -29,12 +28,12 @@ import {notifications} from "@mantine/notifications";
 import {PathDisplay} from "./PathDisplay.tsx";
 import type {SystemPromptItem} from "../models/SystemPromptItem.ts";
 import {DefinedTreeNode} from "../models/tree.ts";
+import FileProcessorWorker from '../workers/fileProcessor.worker.ts?worker';
 
 const PROMPTS_PATH = import.meta.env.VITE_SYSTEM_PROMPTS_PATH ?? 'FileCollector/system_prompts.json';
 const parsedBaseDir = parseInt(import.meta.env.VITE_FILE_BASE_PATH ?? '', 10);
 const BASE_DIR = (Number.isNaN(parsedBaseDir) ? 21 : parsedBaseDir) as BaseDirectory;
 const MAX_FILE_SIZE_BYTES = 200_000;
-const LOADER_DELAY_MS = 300;
 
 interface FileManagerProps {
     data: DefinedTreeNode[];
@@ -61,17 +60,141 @@ export const FileManager = ({
                             }: FileManagerProps) => {
     const theme = useMantineTheme();
     const isMobile = useMediaQuery(`(max-width: ${theme.breakpoints.sm})`);
-    const [files, setFiles] = useState<FileInfo[]>([]);
+
+    const [files, setFiles] = useState<Map<string, FileInfo>>(new Map());
     const [selectedFilePath, setSelectedFilePath] = useState<string | null>(null);
     const [isProcessing, setIsProcessing] = useState(false);
     const [systemPrompts, setSystemPrompts] = useState<SystemPromptItem[]>([]);
     const [selectedSystemPromptId, setSelectedSystemPromptId] = useState<string | null>(null);
     const [userPrompt, setUserPrompt] = useState('');
-    const [reloadNonce, setReloadNonce] = useState(0);
     const [debouncedUserPrompt] = useDebouncedValue(userPrompt, 1000);
     const [composedTotalTokens, setComposedTotalTokens] = useState(0);
     const [isPreviewVisible, setIsPreviewVisible] = useState(false);
-    const loadingTimerRef = useRef<number | null>(null);
+
+    const workerRef = useRef<Worker | null>(null);
+    const jobCounterRef = useRef(0);
+
+    useEffect(() => {
+        const worker = new FileProcessorWorker();
+        workerRef.current = worker;
+
+        worker.onmessage = (event: MessageEvent<{ jobId: number; fileInfo: FileInfo }>) => {
+            if (event.data.jobId !== jobCounterRef.current) return;
+
+            setFiles(prevFiles => {
+                const newFiles = new Map(prevFiles);
+                newFiles.set(event.data.fileInfo.path, event.data.fileInfo);
+                return newFiles;
+            });
+        };
+
+        return () => worker.terminate();
+    }, []);
+
+    useEffect(() => {
+        const getSystemPrompts = async () => {
+            try {
+                const content = await readTextFile(PROMPTS_PATH, {baseDir: BASE_DIR});
+                const prompts = content ? JSON.parse(content) : [];
+                if (Array.isArray(prompts)) setSystemPrompts(prompts);
+            } catch {
+                setSystemPrompts([]);
+            }
+        };
+        getSystemPrompts();
+    }, []);
+
+    const processFiles = useCallback((paths: string[]) => {
+        if (!workerRef.current) return;
+        jobCounterRef.current += 1;
+        const currentJobId = jobCounterRef.current;
+
+        paths.forEach(async (path) => {
+            try {
+                const meta = await stat(path);
+                if (meta.size > MAX_FILE_SIZE_BYTES) {
+                    throw new Error(`File is too large (over ${MAX_FILE_SIZE_BYTES / 1000} KB).`);
+                }
+
+                const content = await readTextFileWithDetectedEncoding(path);
+                workerRef.current?.postMessage({
+                    file: {path, content},
+                    jobId: currentJobId
+                });
+
+            } catch (e) {
+                const errorInfo: FileInfo = {
+                    path,
+                    status: 'error',
+                    error: e instanceof Error ? e.message : String(e),
+                };
+                setFiles(prev => new Map(prev).set(path, errorInfo));
+            }
+        });
+    }, []);
+
+
+    const handleReloadContent = () => {
+        const paths = Array.from(files.keys());
+        setFiles(prev => {
+            const pendingFiles = new Map(prev);
+            for (const path of paths) {
+                pendingFiles.set(path, {...pendingFiles.get(path)!, status: 'processing'});
+            }
+            return pendingFiles;
+        });
+        processFiles(paths);
+    };
+
+
+    useEffect(() => {
+        const currentPaths = new Set(checkedItems);
+        const previousPaths = new Set(files.keys());
+
+        const addedPaths = checkedItems.filter(p => !previousPaths.has(p));
+        const removedPaths = Array.from(previousPaths).filter(p => !currentPaths.has(p));
+
+        if (addedPaths.length === 0 && removedPaths.length === 0) return;
+
+        setFiles(prev => {
+            const newFiles = new Map(prev);
+            removedPaths.forEach(path => newFiles.delete(path));
+            addedPaths.forEach(path => newFiles.set(path, {path, status: 'processing'}));
+            return newFiles;
+        });
+
+        if (addedPaths.length > 0) {
+            processFiles(addedPaths);
+        }
+
+        if (selectedFilePath && removedPaths.includes(selectedFilePath)) {
+            setSelectedFilePath(null);
+        }
+
+    }, [checkedItems, files, selectedFilePath, processFiles]);
+
+
+    useEffect(() => {
+        let activeJobs = 0;
+        let totalTokens = 0;
+
+        for (const file of files.values()) {
+            if (file.status === 'pending' || file.status === 'processing') {
+                activeJobs++;
+            }
+            if (file.status === 'complete' && file.tokenCount) {
+                totalTokens += file.tokenCount;
+            }
+        }
+        setIsProcessing(activeJobs > 0);
+
+        const userPromptTokens = estimateTokens(debouncedUserPrompt);
+        const selectedPrompt = systemPrompts.find(p => p.id === selectedSystemPromptId);
+        const systemPromptTokens = selectedPrompt ? estimateTokens(selectedPrompt.content) : 0;
+
+        setComposedTotalTokens(systemPromptTokens + userPromptTokens + totalTokens);
+
+    }, [files, debouncedUserPrompt, selectedSystemPromptId, systemPrompts]);
 
     const handleAddItem = (filePath: string) => {
         setCheckedItems(prevItems => Array.from(new Set(prevItems).add(filePath)));
@@ -94,125 +217,17 @@ export const FileManager = ({
         setCheckedItems([]);
     };
 
-    const allFilePaths = new Set(allFiles.map(file => file.value));
-    const checkedFiles = checkedItems.filter(item => allFilePaths.has(item));
-    const checkedFilesKey = JSON.stringify(checkedFiles.toSorted());
-
-    const handleReloadContent = () => setReloadNonce(n => n + 1);
-
-    useEffect(() => {
-        const getSystemPrompts = async () => {
-            try {
-                const content = await readTextFile(PROMPTS_PATH, {baseDir: BASE_DIR});
-                const prompts = content ? JSON.parse(content) : [];
-                if (Array.isArray(prompts)) {
-                    setSystemPrompts(prompts);
-                }
-            } catch {
-                setSystemPrompts([]);
-            }
-        };
-        getSystemPrompts();
-    }, []);
-
-    useEffect(() => {
-        if (loadingTimerRef.current) {
-            clearTimeout(loadingTimerRef.current);
-        }
-
-        const syncFiles = async () => {
-            const currentCheckedFiles = JSON.parse(checkedFilesKey);
-            if (currentCheckedFiles.length === 0) {
-                setFiles([]);
-                setSelectedFilePath(null);
-                setIsProcessing(false);
-                return;
-            }
-
-            loadingTimerRef.current = window.setTimeout(() => {
-                setIsProcessing(true);
-            }, LOADER_DELAY_MS);
-
-            try {
-                const filePromises = currentCheckedFiles.map(async (path: string): Promise<FileInfo> => {
-                    try {
-                        const meta = await stat(path);
-                        if (meta.size > MAX_FILE_SIZE_BYTES) {
-                            return {
-                                path,
-                                error: `File is too large (over ${MAX_FILE_SIZE_BYTES / 1000} KB).`,
-                                tokenCount: 0,
-                            };
-                        }
-
-                        const content = await readTextFileWithDetectedEncoding(path);
-                        return {
-                            path,
-                            language: getLanguage(path),
-                            tokenCount: estimateTokens(content),
-                        };
-                    } catch (e) {
-                        return {
-                            path,
-                            error: `Failed to read file: ${e instanceof Error ? e.message : String(e)}`,
-                        };
-                    }
-                });
-
-                const newFiles = await Promise.all(filePromises);
-                newFiles.sort((a, b) => {
-                    const aHasError = !!a.error;
-                    const bHasError = !!b.error;
-                    if (aHasError !== bHasError) {
-                        return aHasError ? -1 : 1;
-                    }
-                    return (b.tokenCount ?? 0) - (a.tokenCount ?? 0);
-                });
-                setFiles(newFiles);
-
-                const dataPathSet = new Set(currentCheckedFiles);
-                if (!selectedFilePath || !dataPathSet.has(selectedFilePath)) {
-                    setSelectedFilePath(newFiles.find(f => !f.error)?.path ?? null);
-                }
-            } finally {
-                if (loadingTimerRef.current) {
-                    clearTimeout(loadingTimerRef.current);
-                }
-                setIsProcessing(false);
-            }
-        };
-
-        syncFiles();
-
-        return () => {
-            if (loadingTimerRef.current) {
-                clearTimeout(loadingTimerRef.current);
-            }
-        };
-    }, [checkedFilesKey, reloadNonce]);
-
-    const selectedFile = files.find(f => f.path === selectedFilePath) ?? null;
+    const selectedFile = selectedFilePath ? files.get(selectedFilePath) ?? null : null;
 
     const handleFileSelect = (file: FileInfo | null) => {
         setSelectedFilePath(file?.path ?? null);
     };
 
-    const fileTokens = files.reduce((acc, file) => acc + (file.tokenCount ?? 0), 0);
-
-    const selectedPrompt = systemPrompts.find(p => p.id === selectedSystemPromptId);
-
-    const systemPromptTokens = selectedPrompt ? estimateTokens(selectedPrompt.content) : 0;
-
-    useEffect(() => {
-        const userPromptTokens = estimateTokens(debouncedUserPrompt);
-        setComposedTotalTokens(systemPromptTokens + userPromptTokens + fileTokens);
-    }, [debouncedUserPrompt, fileTokens, systemPromptTokens]);
-
     const handleCopyAll = async () => {
-        const filesToCopy = files.filter(file => !file.error);
-        const systemPromptContent = selectedPrompt ? selectedPrompt.content : '';
+        const filesToCopy = Array.from(files.values()).filter(file => file.status === 'complete');
+        const systemPromptContent = systemPrompts.find(p => p.id === selectedSystemPromptId)?.content ?? '';
 
-        if (filesToCopy.length === 0 && !userPrompt && !selectedPrompt) {
+        if (filesToCopy.length === 0 && !userPrompt && !systemPromptContent) {
             notifications.show({
                 title: 'No Content to Copy',
                 message: 'Select files or write a prompt to generate content.',
@@ -241,10 +256,9 @@ export const FileManager = ({
 
             await writeText(formattedContent);
 
-            const currentTokens = systemPromptTokens + estimateTokens(userPrompt) + fileTokens;
             notifications.show({
                 title: 'Content Copied',
-                message: `Successfully copied ~${currentTokens.toLocaleString()} tokens to clipboard.`,
+                message: `Successfully copied ~${composedTotalTokens.toLocaleString()} tokens to clipboard.`,
                 color: 'green',
                 icon: <IconCheck size={18}/>,
             });
@@ -349,7 +363,7 @@ export const FileManager = ({
                         w={{base: '100%', md: isPreviewVisible ? '45%' : '100%'}}
                     >
                         <ContentComposer
-                            files={files}
+                            files={Array.from(files.values())}
                             selectedFile={selectedFile}
                             selectedSystemPromptId={selectedSystemPromptId}
                             setSelectedSystemPromptId={setSelectedSystemPromptId}

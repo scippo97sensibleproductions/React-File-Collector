@@ -64,7 +64,7 @@ export const ContentComposer = ({
             if (userPrompt !== inputValue) {
                 setUserPrompt(inputValue);
             }
-        }, 1000);
+        }, 500);
 
         return () => {
             clearTimeout(handler);

@@ -1,3 +1,4 @@
+/* eslint-env node */
 import { execSync } from 'child_process';
 import { readFileSync, existsSync } from 'fs';
 import { resolve } from 'path';
@@ -25,7 +26,6 @@ async function runBuild() {
             message: `Enter password for ${KEY_FILE_NAME}:`
         });
 
-        // prompts returns undefined if the user cancels (e.g., Ctrl+C)
         if (typeof response.password === 'undefined') {
             console.log('\nBuild cancelled by user.');
             process.exit(130);
@@ -52,7 +52,6 @@ async function runBuild() {
     }
 }
 
-// Handle exit signals to prevent orphaned processes
 process.on('SIGINT', () => process.exit());
 process.on('SIGTERM', () => process.exit());
 

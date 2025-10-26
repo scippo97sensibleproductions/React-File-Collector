@@ -1,4 +1,15 @@
-export const getLanguage = (file: string): string => {
+import type {FileInfo} from "../models/FileInfo.ts";
+
+function estimateTokens(text: string): number {
+    if (!text) {
+        return 0;
+    }
+    const tokenRegex = /[\w]+|[^\s\w]/g;
+    const tokens = text.match(tokenRegex);
+    return Math.round((tokens?.length ?? 0) * 1.39);
+}
+
+function getLanguage(file: string): string {
     const extension = file.split('.').pop()?.toLowerCase();
     if (!extension) return 'plaintext';
 
@@ -39,6 +50,21 @@ export const getLanguage = (file: string): string => {
         vbs: 'vbscript', v: 'verilog', vhd: 'vhdl', vim: 'vim', x86asm: 'x86asm', xl: 'xl',
         xml: 'xml', xq: 'xquery', yml: 'yaml', yaml: 'yaml', zephir: 'zephir'
     };
-
     return languageMap[extension] ?? 'plaintext';
 }
+
+
+self.onmessage = (event: MessageEvent<{ file: { path: string, content: string }, jobId: number }>) => {
+    const {file, jobId} = event.data;
+
+    const tokenCount = estimateTokens(file.content);
+    const language = getLanguage(file.path);
+
+    const fileInfo: FileInfo = {
+        path: file.path,
+        status: 'complete',
+        tokenCount,
+        language,
+    };
+    self.postMessage({jobId, fileInfo});
+};
