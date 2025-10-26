@@ -1,7 +1,7 @@
 {
   "name": "file-collector-react",
   "private": true,
-  "version": "1.0.4",
+  "version": "1.0.5",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -58,5 +58,6 @@
     "vite": "^7.1.12"
   }
 }
+
 
 
