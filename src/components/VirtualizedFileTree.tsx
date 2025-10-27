@@ -1,7 +1,19 @@
 import {useState} from 'react';
-import {Box, Center, Checkbox, Group, Stack, Text, Title} from '@mantine/core';
+import {
+    ActionIcon,
+    Box,
+    Center,
+    Checkbox,
+    Group,
+    rgba,
+    Stack,
+    Text,
+    Title,
+    Tooltip,
+    useMantineTheme
+} from '@mantine/core';
 import {List, type RowComponentProps} from 'react-window';
-import {IconCaretDownFilled, IconCaretRightFilled, IconFolderOff} from '@tabler/icons-react';
+import {IconCaretDownFilled, IconCaretRightFilled, IconFolderOff, IconSitemap} from '@tabler/icons-react';
 import {useElementSize} from '@mantine/hooks';
 import {FileIcon} from './FileIcon';
 import {DefinedTreeNode} from "../models/tree.ts";
@@ -17,7 +29,9 @@ interface FlatNode {
 interface VirtualizedFileTreeProps {
     data: DefinedTreeNode[];
     checkedItems: string[];
+    treeRootPath: string | null;
     onNodeToggle: (node: DefinedTreeNode) => void;
+    onSetTreeRoot: (path: string | null) => void;
 }
 
 type CheckState = 'checked' | 'unchecked' | 'indeterminate';
@@ -26,8 +40,10 @@ type TreeRowProps = {
     flatNodes: FlatNode[];
     nodeCheckStates: Map<string, CheckState>;
     expandedIds: Set<string>;
+    treeRootPath: string | null;
     toggleExpand: (id: string) => void;
     toggleCheck: (node: DefinedTreeNode) => void;
+    setTreeRoot: (path: string | null) => void;
 };
 
 const flattenTree = (nodes: DefinedTreeNode[], expandedIds: Set<string>, depth = 0): FlatNode[] => {
@@ -50,15 +66,22 @@ const collectFilePaths = (node: DefinedTreeNode): string[] => {
 };
 
 const NodeRow = ({index, style, ariaAttributes, ...props}: RowComponentProps<TreeRowProps>) => {
-    const {flatNodes, nodeCheckStates, expandedIds, toggleExpand, toggleCheck} = props;
+    const theme = useMantineTheme();
+    const {flatNodes, nodeCheckStates, expandedIds, treeRootPath, toggleExpand, toggleCheck, setTreeRoot} = props;
     const {id, label, depth, isFolder, node} = flatNodes[index];
 
     const state = nodeCheckStates.get(id) ?? 'unchecked';
     const isChecked = state === 'checked';
     const isIndeterminate = state === 'indeterminate';
+    const isTreeRoot = treeRootPath === id;
+
+    const rowStyle = {
+        ...style,
+        backgroundColor: isTreeRoot ? rgba(theme.colors.blue[5], 0.15) : undefined,
+    };
 
     return (
-        <Box style={style} {...ariaAttributes}>
+        <Box style={rowStyle} {...ariaAttributes}>
             <Group gap={0} style={{height: '100%'}} wrap="nowrap">
                 <Box
                     style={{paddingLeft: depth * 20, display: 'flex', alignItems: 'center', cursor: 'pointer'}}
@@ -90,12 +113,27 @@ const NodeRow = ({index, style, ariaAttributes, ...props}: RowComponentProps<Tre
                         {label}
                     </Text>
                 </Group>
+                {isFolder && (
+                    <Tooltip label={isTreeRoot ? 'Clear as tree root' : 'Set as tree root'}>
+                        <ActionIcon
+                            color={isTreeRoot ? 'blue' : 'gray'}
+                            size="sm"
+                            variant="subtle"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setTreeRoot(id);
+                            }}
+                        >
+                            <IconSitemap size={16}/>
+                        </ActionIcon>
+                    </Tooltip>
+                )}
             </Group>
         </Box>
     );
 };
 
-export const VirtualizedFileTree = ({data, checkedItems, onNodeToggle}: VirtualizedFileTreeProps) => {
+export const VirtualizedFileTree = ({data, checkedItems, treeRootPath, onNodeToggle, onSetTreeRoot}: VirtualizedFileTreeProps) => {
     const [expandedIds, setExpandedIds] = useState(new Set<string>());
     const {ref: containerRef} = useElementSize();
 
@@ -151,8 +189,10 @@ export const VirtualizedFileTree = ({data, checkedItems, onNodeToggle}: Virtuali
         flatNodes,
         nodeCheckStates,
         expandedIds,
+        treeRootPath,
         toggleExpand,
         toggleCheck: onNodeToggle,
+        setTreeRoot: onSetTreeRoot,
     };
 
     return (

@@ -6,6 +6,7 @@ import {
     ScrollArea,
     Select,
     Stack,
+    Switch,
     Tabs,
     Text,
     Textarea,
@@ -27,6 +28,8 @@ interface ContentComposerProps {
     selectedFile: FileInfo | null;
     userPrompt: string;
     selectedSystemPromptId: string | null;
+    includeFileTree: boolean;
+    treeRootPath: string | null;
     onFileSelect: (file: FileInfo | null) => void;
     onUncheckItem: (path: string) => void;
     onUncheckGroup?: (paths: string[]) => void;
@@ -35,6 +38,8 @@ interface ContentComposerProps {
     onClearAll: () => void;
     setUserPrompt: (prompt: string) => void;
     setSelectedSystemPromptId: (id: string | null) => void;
+    setIncludeFileTree: (checked: boolean) => void;
+    onClearTreeRoot: () => void;
     totalTokens: number;
     onShowPreview: () => void;
 }
@@ -45,6 +50,8 @@ export const ContentComposer = ({
                                     selectedFile,
                                     userPrompt,
                                     selectedSystemPromptId,
+                                    includeFileTree,
+                                    treeRootPath,
                                     onFileSelect,
                                     onUncheckItem,
                                     onUncheckGroup,
@@ -53,6 +60,8 @@ export const ContentComposer = ({
                                     onClearAll,
                                     setUserPrompt,
                                     setSelectedSystemPromptId,
+                                    setIncludeFileTree,
+                                    onClearTreeRoot,
                                     totalTokens,
                                     onShowPreview
                                 }: ContentComposerProps) => {
@@ -81,6 +90,28 @@ export const ContentComposer = ({
                 <Group align="center" justify="space-between">
                     <Title order={5}>Content Composer</Title>
                     <Group align="center" gap="xs">
+                        <Tooltip
+                            label={treeRootPath ? `Using tree from: ${treeRootPath}` : "Include file tree in output"}>
+                            <Group align="center" gap={4}>
+                                <Switch
+                                    checked={includeFileTree}
+                                    label="Tree"
+                                    size="sm"
+                                    onChange={(event) => setIncludeFileTree(event.currentTarget.checked)}
+                                />
+                                {includeFileTree && treeRootPath && (
+                                    <ActionIcon
+                                        aria-label="Clear tree root selection"
+                                        color="gray"
+                                        size="xs"
+                                        variant="subtle"
+                                        onClick={onClearTreeRoot}
+                                    >
+                                        <IconX size={12}/>
+                                    </ActionIcon>
+                                )}
+                            </Group>
+                        </Tooltip>
                         <Text c="dimmed" fw={500} size="xs">
                             ~{totalTokens.toLocaleString()} tokens
                         </Text>
@@ -107,7 +138,7 @@ export const ContentComposer = ({
                         </Tooltip>
                         <Tooltip label="Copy composed prompt to clipboard">
                             <Button
-                                disabled={!hasFiles && !userPrompt && !selectedSystemPromptId}
+                                disabled={!hasFiles && !userPrompt && !selectedSystemPromptId && !includeFileTree}
                                 leftSection={<IconCopy size={14}/>}
                                 size="compact-sm"
                                 variant="light"

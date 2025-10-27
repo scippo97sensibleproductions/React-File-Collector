@@ -47,6 +47,36 @@ interface FileManagerProps {
     onReloadTree: () => void;
 }
 
+const generateTreeString = (nodes: DefinedTreeNode[], prefix = ''): string => {
+    let treeString = '';
+    nodes.forEach((node, index) => {
+        const isLast = index === nodes.length - 1;
+        const connector = isLast ? '└─ ' : '├─ ';
+        const newPrefix = prefix + (isLast ? '    ' : '│   ');
+        treeString += `${prefix}${connector}${node.label}\n`;
+        if (node.children) {
+            treeString += generateTreeString(node.children, newPrefix);
+        }
+    });
+    return treeString;
+};
+
+const findNodeByPath = (nodes: DefinedTreeNode[], path: string): DefinedTreeNode | null => {
+    for (const node of nodes) {
+        if (node.value === path) {
+            return node;
+        }
+        if (node.children) {
+            const found = findNodeByPath(node.children, path);
+            if (found) {
+                return found;
+            }
+        }
+    }
+    return null;
+};
+
+
 export const FileManager = ({
                                 data,
                                 allFiles,
@@ -70,6 +100,8 @@ export const FileManager = ({
     const [debouncedUserPrompt] = useDebouncedValue(userPrompt, 1000);
     const [composedTotalTokens, setComposedTotalTokens] = useState(0);
     const [isPreviewVisible, setIsPreviewVisible] = useState(false);
+    const [includeFileTree, setIncludeFileTree] = useState(false);
+    const [treeRootPath, setTreeRootPath] = useState<string | null>(null);
 
     const workerRef = useRef<Worker | null>(null);
     const jobCounterRef = useRef(0);
@@ -176,14 +208,14 @@ export const FileManager = ({
 
     useEffect(() => {
         let activeJobs = 0;
-        let totalTokens = 0;
+        let totalFileTokens = 0;
 
         for (const file of files.values()) {
             if (file.status === 'pending' || file.status === 'processing') {
                 activeJobs++;
             }
             if (file.status === 'complete' && file.tokenCount) {
-                totalTokens += file.tokenCount;
+                totalFileTokens += file.tokenCount;
             }
         }
         setIsProcessing(activeJobs > 0);
@@ -192,9 +224,17 @@ export const FileManager = ({
         const selectedPrompt = systemPrompts.find(p => p.id === selectedSystemPromptId);
         const systemPromptTokens = selectedPrompt ? estimateTokens(selectedPrompt.content) : 0;
 
-        setComposedTotalTokens(systemPromptTokens + userPromptTokens + totalTokens);
+        let treeTokens = 0;
+        if (includeFileTree && data.length > 0) {
+            const rootNode = treeRootPath ? findNodeByPath(data, treeRootPath) : null;
+            const nodesForTree = rootNode ? [rootNode] : data;
+            const treeString = generateTreeString(nodesForTree);
+            treeTokens = estimateTokens(treeString);
+        }
 
-    }, [files, debouncedUserPrompt, selectedSystemPromptId, systemPrompts]);
+        setComposedTotalTokens(systemPromptTokens + userPromptTokens + totalFileTokens + treeTokens);
+
+    }, [files, debouncedUserPrompt, selectedSystemPromptId, systemPrompts, includeFileTree, data, treeRootPath]);
 
     const handleAddItem = (filePath: string) => {
         setCheckedItems(prevItems => Array.from(new Set(prevItems).add(filePath)));
@@ -223,11 +263,16 @@ export const FileManager = ({
         setSelectedFilePath(file?.path ?? null);
     };
 
+    const handleSetTreeRoot = (path: string | null) => {
+        setTreeRootPath(currentPath => (currentPath === path ? null : path));
+    };
+
     const handleCopyAll = async () => {
         const filesToCopy = Array.from(files.values()).filter(file => file.status === 'complete');
         const systemPromptContent = systemPrompts.find(p => p.id === selectedSystemPromptId)?.content ?? '';
+        const hasTree = includeFileTree && data.length > 0;
 
-        if (filesToCopy.length === 0 && !userPrompt && !systemPromptContent) {
+        if (filesToCopy.length === 0 && !userPrompt && !systemPromptContent && !hasTree) {
             notifications.show({
                 title: 'No Content to Copy',
                 message: 'Select files or write a prompt to generate content.',
@@ -250,6 +295,12 @@ export const FileManager = ({
 
             const contentParts = [];
             if (systemPromptContent.trim()) contentParts.push(`SYSTEM PROMPT:\n\n${systemPromptContent.trim()}`);
+            if (hasTree) {
+                const rootNode = treeRootPath ? findNodeByPath(data, treeRootPath) : null;
+                const nodesForTree = rootNode ? [rootNode] : data;
+                const treeString = generateTreeString(nodesForTree);
+                contentParts.push(`PROJECT FILE TREE:\n\n\`\`\`\n${treeString}\`\`\``);
+            }
             if (fileContents.length > 0) contentParts.push(fileContents.join('\n\n---\n\n'));
             if (userPrompt.trim()) contentParts.push(`USER PROMPT:\n\n${userPrompt.trim()}`);
             const formattedContent = contentParts.join('\n\n---\n\n');
@@ -331,7 +382,9 @@ export const FileManager = ({
                                 <VirtualizedFileTree
                                     checkedItems={checkedItems}
                                     data={data}
+                                    treeRootPath={treeRootPath}
                                     onNodeToggle={onNodeToggle}
+                                    onSetTreeRoot={handleSetTreeRoot}
                                 />
                             </Tabs.Panel>
 
@@ -364,14 +417,18 @@ export const FileManager = ({
                     >
                         <ContentComposer
                             files={Array.from(files.values())}
+                            includeFileTree={includeFileTree}
                             selectedFile={selectedFile}
                             selectedSystemPromptId={selectedSystemPromptId}
+                            setIncludeFileTree={setIncludeFileTree}
                             setSelectedSystemPromptId={setSelectedSystemPromptId}
                             setUserPrompt={setUserPrompt}
                             systemPrompts={systemPrompts}
                             totalTokens={composedTotalTokens}
+                            treeRootPath={treeRootPath}
                             userPrompt={userPrompt}
                             onClearAll={handleClearAll}
+                            onClearTreeRoot={() => setTreeRootPath(null)}
                             onCopyAll={handleCopyAll}
                             onFileSelect={handleFileSelect}
                             onReloadContent={handleReloadContent}
