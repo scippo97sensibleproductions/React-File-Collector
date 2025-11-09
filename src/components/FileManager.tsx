@@ -11,7 +11,7 @@ import {
     Tooltip,
     useMantineTheme
 } from "@mantine/core";
-import {IconArchive, IconCheck, IconFiles, IconFolderOpen, IconRefresh, IconSearch} from "@tabler/icons-react";
+import {IconArchive, IconCheck, IconFiles, IconFolderOpen, IconRefresh, IconSearch, IconTxt} from "@tabler/icons-react";
 import {useCallback, useEffect, useRef, useState} from "react";
 import {FileSearch} from "./FileSearch.tsx";
 import {VirtualizedFileTree} from "./VirtualizedFileTree.tsx";
@@ -29,6 +29,7 @@ import {PathDisplay} from "./PathDisplay.tsx";
 import type {SystemPromptItem} from "../models/SystemPromptItem.ts";
 import {DefinedTreeNode} from "../models/tree.ts";
 import FileProcessorWorker from '../workers/fileProcessor.worker.ts?worker';
+import {MultiFileSearch} from "./MultiFileSearch.tsx";
 
 const PROMPTS_PATH = import.meta.env.VITE_SYSTEM_PROMPTS_PATH ?? 'FileCollector/system_prompts.json';
 const parsedBaseDir = parseInt(import.meta.env.VITE_FILE_BASE_PATH ?? '', 10);
@@ -240,6 +241,10 @@ export const FileManager = ({
         setCheckedItems(prevItems => Array.from(new Set(prevItems).add(filePath)));
     };
 
+    const handleAddItems = (filePaths: string[]) => {
+        setCheckedItems(prevItems => Array.from(new Set([...prevItems, ...filePaths])));
+    };
+
     const handleRemoveItem = (filePath: string) => {
         setCheckedItems(prevItems => prevItems.filter(p => p !== filePath));
     };
@@ -373,6 +378,9 @@ export const FileManager = ({
                                 <Tabs.Tab leftSection={<IconSearch size={16}/>} value="search">
                                     Search
                                 </Tabs.Tab>
+                                <Tabs.Tab leftSection={<IconTxt size={16}/>} value="multi-search">
+                                    Multi-Search
+                                </Tabs.Tab>
                                 <Tabs.Tab leftSection={<IconArchive size={16}/>} value="contexts">
                                     Contexts
                                 </Tabs.Tab>
@@ -393,6 +401,15 @@ export const FileManager = ({
                                     allFiles={allFiles}
                                     checkedItems={checkedItems}
                                     onCheckItem={handleAddItem}
+                                />
+                            </Tabs.Panel>
+
+                            <Tabs.Panel pt="xs" style={{flex: 1, minHeight: 0}} value="multi-search">
+                                <MultiFileSearch
+                                    allFiles={allFiles}
+                                    checkedItems={checkedItems}
+                                    onCheckItem={handleAddItem}
+                                    onCheckItems={handleAddItems}
                                 />
                             </Tabs.Panel>
 
