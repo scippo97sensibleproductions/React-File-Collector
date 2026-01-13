@@ -11,17 +11,30 @@ interface FilterRequest {
     id: number;
     entries: EntryToFilter[];
     gitIgnoreItems: GitIgnoreItem[];
+    rootPath: string;
 }
 
 self.onmessage = (e: MessageEvent<FilterRequest>) => {
-    const { id, entries, gitIgnoreItems } = e.data;
+    const { id, entries, gitIgnoreItems, rootPath } = e.data;
 
     const files: EntryToFilter[] = [];
     const dirs: EntryToFilter[] = [];
 
+    const normalizedRoot = rootPath.replace(/\\/g, '/').replace(/\/$/, '');
+
     for (const entry of entries) {
-        const normalizedPath = entry.path.replace(/\\/g, '/');
-        const pathToCheck = entry.isDirectory ? `${normalizedPath}/` : normalizedPath;
+        const normalizedFullPath = entry.path.replace(/\\/g, '/');
+
+        let relativePath = normalizedFullPath;
+        if (normalizedFullPath.startsWith(normalizedRoot)) {
+            relativePath = normalizedFullPath.substring(normalizedRoot.length);
+        }
+
+        if (relativePath.startsWith('/')) {
+            relativePath = relativePath.substring(1);
+        }
+
+        const pathToCheck = entry.isDirectory ? `${relativePath}/` : relativePath;
 
         if (!shouldIgnore(gitIgnoreItems, pathToCheck)) {
             if (entry.isDirectory) {
