@@ -57,7 +57,24 @@ const IndexComponent = () => {
     const jobCounterRef = useRef(0);
     const pendingJobsRef = useRef(new Map<number, (result: FilterResult) => void>());
 
-    const buildFileTree = useCallback(async (currentPath: string, gitIgnoreItems: GitIgnoreItem[]): Promise<{
+    // We must pass the original rootPath to the worker for correct relative path calculation
+    const filterEntriesWithWorker = (entries: WorkerEntry[], gitIgnoreItems: GitIgnoreItem[], rootPath: string): Promise<FilterResult> => {
+        const id = jobCounterRef.current++;
+        const worker = workerRef.current;
+        if (!worker) return Promise.resolve({files: [], dirs: []});
+
+        return new Promise((resolve) => {
+            pendingJobsRef.current.set(id, resolve);
+            worker.postMessage({
+                id,
+                entries,
+                gitIgnoreItems,
+                rootPath,
+            });
+        });
+    };
+
+    const buildFileTree = useCallback(async (currentPath: string, rootPath: string, gitIgnoreItems: GitIgnoreItem[]): Promise<{
         tree: DefinedTreeNode[],
         allFiles: { label: string; value: string }[]
     }> => {
@@ -77,7 +94,8 @@ const IndexComponent = () => {
             }))
         );
 
-        const {files: filteredFiles, dirs: filteredDirs} = await filterEntriesWithWorker(workerEntries, gitIgnoreItems);
+        // Pass the rootPath to filter correctly
+        const {files: filteredFiles, dirs: filteredDirs} = await filterEntriesWithWorker(workerEntries, gitIgnoreItems, rootPath);
 
         const allFoundFiles: { label: string; value: string }[] = filteredFiles.map(f => ({
             label: f.name,
@@ -86,7 +104,8 @@ const IndexComponent = () => {
         const nodes: DefinedTreeNode[] = filteredFiles.map(f => ({label: f.name, value: f.path}));
 
         for (const dir of filteredDirs) {
-            const result = await buildFileTree(dir.path, gitIgnoreItems);
+            // Recursive call propagates the original rootPath
+            const result = await buildFileTree(dir.path, rootPath, gitIgnoreItems);
             const {tree: children, allFiles: childFiles} = result;
             if (children.length > 0) {
                 nodes.push({value: dir.path, label: dir.name, children});
@@ -104,21 +123,6 @@ const IndexComponent = () => {
         return {tree: nodes, allFiles: allFoundFiles};
     }, []);
 
-    const filterEntriesWithWorker = (entries: WorkerEntry[], gitIgnoreItems: GitIgnoreItem[]): Promise<FilterResult> => {
-        const id = jobCounterRef.current++;
-        const worker = workerRef.current;
-        if (!worker) return Promise.resolve({files: [], dirs: []});
-
-        return new Promise((resolve) => {
-            pendingJobsRef.current.set(id, resolve);
-            worker.postMessage({
-                id,
-                entries,
-                gitIgnoreItems,
-            });
-        });
-    };
-
     const loadDirectory = useCallback(async (selectedPath: string) => {
         setIsLoading(true);
         setPath(selectedPath);
@@ -128,7 +132,7 @@ const IndexComponent = () => {
 
         try {
             const gitIgnoreItems = await fetchGitIgnoreItems();
-            const {tree, allFiles} = await buildFileTree(selectedPath, gitIgnoreItems);
+            const {tree, allFiles} = await buildFileTree(selectedPath, selectedPath, gitIgnoreItems);
             setTreeData(tree);
             setAllFiles(allFiles);
 

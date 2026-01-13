@@ -2,57 +2,65 @@ import type {GitIgnoreItem} from "../models/GitIgnoreItem.ts";
 import type {ProcessedPattern} from "../models/ProcessedPattern.ts";
 
 const escapeRegexChars = (str: string): string =>
-    str.replace(/[.+^${}()|[\]]/g, '\\$&');
-
-const unescapeGitignoreSpecialChars = (str: string): string =>
-    str.replace(/\\([!#*? ])/g, '$1');
+    str.replace(/[.+^${}()|[\]\\]/g, '\\$&');
 
 const convertGitignoreWildcards = (str: string): string =>
     str.replace(/\*/g, '[^/]*').replace(/\?/g, '[^/]');
 
 const handleDoubleAsterisk = (str: string): string => {
+    if (str === '**') return '.*';
+
     let result = str;
     if (result.startsWith('**/')) {
-        result = `(?:.*/)?${result.substring(3)}`;
+        result = result.substring(3); 
     }
-    result = result.replace(/\/\*\*(\/|$)/g, '(?:/.*)*$1');
-    result = result.replace(/\/(\*\*)$/, '(?:/.*)?');
+
+    result = result.replace(/\/\*\*\//g, '(?:/|/.+/)');
+
+    result = result.replace(/\/\*\*$/, '(?:/.*)?');
+
     return result;
 };
 
-const applyAnchoring = (pattern: string, regexString: string): string => {
-    if (pattern.includes('/') && !pattern.startsWith('**/')) {
-        return `^${regexString}`;
-    }
-    return `(?:^|/)${regexString}`;
-};
-
-const finalizePatternMatching = (pattern: string, regexString: string): string => {
-    if (pattern.endsWith('/')) {
-        return `${regexString.slice(0, -1)}($|/.*)`;
-    }
-    return `${regexString}($|/.*)`;
-};
-
 const patternToRegex = (pattern: string): RegExp => {
-    const pipeline = [
-        escapeRegexChars,
-        unescapeGitignoreSpecialChars,
-        convertGitignoreWildcards,
-        handleDoubleAsterisk,
-        (s: string) => applyAnchoring(pattern, s),
-        (s: string) => finalizePatternMatching(pattern, s),
-    ];
+    let regexString = pattern;
 
-    const finalRegexString = pipeline.reduce((acc, fn) => fn(acc), pattern);
+    const isExplicitlyRooted = regexString.startsWith('/');
+    if (isExplicitlyRooted) {
+        regexString = regexString.substring(1);
+    }
+    
+    const isDirectoryOnly = regexString.endsWith('/');
+    const cleanPatternForCheck = isDirectoryOnly ? regexString.slice(0, -1) : regexString;
+    
+    const hasInternalSlash = cleanPatternForCheck.includes('/') && !regexString.startsWith('**/');
+    const isAnchored = isExplicitlyRooted || hasInternalSlash;
+    
+    regexString = escapeRegexChars(regexString);
+    regexString = convertGitignoreWildcards(regexString);
 
-    return new RegExp(finalRegexString);
+    regexString = regexString.replace(/\\\*\\\*/g, '**');
+    regexString = handleDoubleAsterisk(regexString);
+
+    if (isAnchored) {
+        regexString = `^${regexString}`;
+    } else {
+        regexString = `(?:^|/)${regexString}`;
+    }
+
+    if (!regexString.endsWith('/') && !regexString.endsWith('.*') && !regexString.endsWith('?')) {
+        regexString = `${regexString}(?:$|/)`;
+    } else if (regexString.endsWith('/')) {
+        regexString = `${regexString}`;
+    }
+    
+    return new RegExp(regexString);
 };
 
 export const processPattern = (item: GitIgnoreItem): ProcessedPattern | null => {
     let pattern = item.pattern.trim();
 
-    if (pattern === '' || pattern.startsWith('#')) {
+    if (!pattern || pattern.startsWith('#')) {
         return null;
     }
 
@@ -65,14 +73,18 @@ export const processPattern = (item: GitIgnoreItem): ProcessedPattern | null => 
         pattern = pattern.substring(1);
     }
 
-    const regex = patternToRegex(pattern);
-
-    return {
-        originalPattern: item.pattern,
-        pattern: pattern,
-        isNegated: isNegated,
-        regex: regex,
-    };
+    try {
+        const regex = patternToRegex(pattern);
+        return {
+            originalPattern: item.pattern,
+            pattern: pattern,
+            isNegated: isNegated,
+            regex: regex,
+        };
+    } catch (e) {
+        console.warn(`Failed to process gitignore pattern: ${pattern}`, e);
+        return null;
+    }
 };
 
 const findLastMatch = (path: string, patterns: ProcessedPattern[]): ProcessedPattern | null => {
@@ -87,6 +99,8 @@ const findLastMatch = (path: string, patterns: ProcessedPattern[]): ProcessedPat
 
 const isNegatedButParentIsIgnored = (path: string, patterns: ProcessedPattern[]): boolean => {
     let parent = path;
+    if (parent.endsWith('/')) parent = parent.slice(0, -1);
+
     while (parent.includes('/')) {
         parent = parent.substring(0, parent.lastIndexOf('/'));
         if (parent === '') break;
@@ -105,7 +119,7 @@ export const checkIgnore = (processedPatterns: ProcessedPattern[], fullPath: str
     const targetMatch = findLastMatch(fullPath, processedPatterns);
 
     if (!targetMatch) {
-        return false;
+        return isNegatedButParentIsIgnored(fullPath, processedPatterns);
     }
 
     if (targetMatch.isNegated) {
@@ -117,12 +131,12 @@ export const checkIgnore = (processedPatterns: ProcessedPattern[], fullPath: str
 
 const processedPatternsCache = new Map<string, ProcessedPattern[]>();
 
-export const shouldIgnore = (items: GitIgnoreItem[], fullPath: string): boolean => {
+export const shouldIgnore = (items: GitIgnoreItem[], relativePath: string): boolean => {
     const cacheKey = JSON.stringify(items);
     if (!processedPatternsCache.has(cacheKey)) {
         const patterns = items.map(processPattern).filter((p): p is ProcessedPattern => p !== null);
         processedPatternsCache.set(cacheKey, patterns);
     }
     const patterns = processedPatternsCache.get(cacheKey)!;
-    return checkIgnore(patterns, fullPath);
+    return checkIgnore(patterns, relativePath);
 };
