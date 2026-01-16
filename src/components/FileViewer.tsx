@@ -14,14 +14,16 @@ interface FileViewerProps {
     selectedFile: FileInfo | null;
     isEmpty: boolean;
     onClose: () => void;
+    content?: string | null; // Added prop for direct content injection
 }
 
 interface FileViewerContentProps {
     selectedFile: FileInfo | null;
     isEmpty: boolean;
+    content?: string | null;
 }
 
-const FileViewerContent = ({selectedFile, isEmpty}: FileViewerContentProps) => {
+const FileViewerContent = ({selectedFile, isEmpty, content: injectedContent}: FileViewerContentProps) => {
     const [fileContent, setFileContent] = useState<{ content: string; language: string } | null>(null);
     const [fileError, setFileError] = useState<string | null>(null);
     const [highlightedHtml, setHighlightedHtml] = useState<string | null>(null);
@@ -62,6 +64,12 @@ const FileViewerContent = ({selectedFile, isEmpty}: FileViewerContentProps) => {
 
         let isCancelled = false;
         const loadContent = async () => {
+            // If content is injected directly, use it immediately
+            if (injectedContent !== undefined && injectedContent !== null) {
+                setFileContent({ content: injectedContent, language: selectedFile.language ?? 'plaintext' });
+                return;
+            }
+
             setIsLoading(true);
             try {
                 const content = await readTextFileWithDetectedEncoding(selectedFile.path);
@@ -82,7 +90,7 @@ const FileViewerContent = ({selectedFile, isEmpty}: FileViewerContentProps) => {
             isCancelled = true;
             if (loadingTimerRef.current) clearTimeout(loadingTimerRef.current);
         };
-    }, [selectedFile]);
+    }, [selectedFile, injectedContent]);
 
 
     useEffect(() => {
@@ -153,7 +161,7 @@ const FileViewerContent = ({selectedFile, isEmpty}: FileViewerContentProps) => {
     );
 };
 
-export const FileViewer = ({selectedFile, isEmpty, onClose}: FileViewerProps) => {
+export const FileViewer = ({selectedFile, isEmpty, onClose, content}: FileViewerProps) => {
     return (
         <Paper
             withBorder
@@ -172,6 +180,7 @@ export const FileViewer = ({selectedFile, isEmpty, onClose}: FileViewerProps) =>
             </ActionIcon>
             <FileViewerContent
                 key={selectedFile?.path ?? 'empty'}
+                content={content}
                 isEmpty={isEmpty}
                 selectedFile={selectedFile}
             />
