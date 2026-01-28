@@ -3,6 +3,7 @@
     "composite": true,
     "skipLibCheck": true,
     "module": "ESNext",
+    "types": ["vite/client", "node"],
     "moduleResolution": "bundler",
     "allowSyntheticDefaultImports": true
   },

@@ -1,45 +1,93 @@
-import {defineConfig} from "vite";
+import { fileURLToPath } from "node:url";
+import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
-import tanstackRouter from "@tanstack/router-plugin/vite";
-
-// @ts-expect-error process is a nodejs global
-const host = process.env.TAURI_DEV_HOST;
+import { inspectAttr } from 'kimi-plugin-inspect-react';
+import { ViteImageOptimizer } from 'vite-plugin-image-optimizer';
+import compression from 'vite-plugin-compression';
 
 // https://vite.dev/config/
 export default defineConfig({
-    plugins: [tanstackRouter({
-        target: 'react',
-        autoCodeSplitting: true,
-    }),
+    base: './',
+    plugins: [
+        inspectAttr(),
         react({
-            babel: {
-                plugins: ['babel-plugin-react-compiler'],
-            },
-        })],
-
-    worker: {
-        format: 'es',
-    },
-
-    // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
-    //
-    // 1. prevent Vite from obscuring rust errors
-    clearScreen: false,
-    // 2. tauri expects a fixed port, fail if that port is not available
-    server: {
-        port: 1420,
-        strictPort: true,
-        host: host || false,
-        hmr: host
-            ? {
-                protocol: "ws",
-                host,
-                port: 1421,
+        }),
+        ViteImageOptimizer({
+            png: { quality: 80 },
+            jpeg: { quality: 80 },
+            webp: { quality: 80 },
+            avif: { quality: 70 },
+            svg: {
+                multipass: true,
+                plugins: [
+                    {
+                        name: 'preset-default',
+                        params: {
+                            overrides: {
+                                cleanupNumericValues: false,
+                                cleanupIds: {
+                                    minify: false,
+                                    remove: false,
+                                },
+                                convertPathData: false,
+                            },
+                        },
+                    },
+                    'sortAttrs',
+                    {
+                        name: 'addAttributesToSVGElement',
+                        params: {
+                            attributes: [{ xmlns: 'http://www.w3.org/2000/svg' }],
+                        },
+                    },
+                ],
             }
-            : undefined,
-        watch: {
-            // 3. tell Vite to ignore watching `src-tauri`
-            ignored: ["**/src-tauri/**"],
+        }),
+        compression({
+            algorithm: 'gzip',
+            ext: '.gz',
+            threshold: 1024,
+            deleteOriginFile: false,
+        }),
+        compression({
+            algorithm: 'brotliCompress',
+            ext: '.br',
+            threshold: 1024,
+            deleteOriginFile: false,
+        }),
+    ],
+    resolve: {
+        alias: {
+            "@": fileURLToPath(new URL("./src", import.meta.url)),
+        },
+    },
+    build: {
+        target: 'esnext',
+        minify: true,
+        cssMinify: true,
+        cssCodeSplit: true,
+        sourcemap: false,
+        reportCompressedSize: false,
+        chunkSizeWarningLimit: 1000,
+        rolldownOptions: {
+            output: {
+                manualChunks(id) {
+                    if (id.includes('node_modules')) {
+                        if (id.includes('react') || id.includes('react-dom') || id.includes('scheduler')) {
+                            return 'react-vendor';
+                        }
+                        if (id.includes('@mantine') || id.includes('@tabler')) {
+                            return 'mantine-vendor';
+                        }
+                        if (id.includes('@lingui')) {
+                            return 'lingui-vendor';
+                        }
+                        if (id.includes('date-fns') || id.includes('lodash') || id.includes('axios')) {
+                            return 'utils-vendor';
+                        }
+                    }
+                },
+            },
         },
     },
 });
