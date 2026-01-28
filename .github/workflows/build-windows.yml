@@ -35,7 +35,7 @@ jobs:
           workspaces: './src-tauri -> target'
 
       - name: Install frontend dependencies
-        run: npm install
+        run: npm install --legacy-peer-deps
 
       - name: Bump Version and Get Package Info
         id: package_info
