@@ -4,6 +4,7 @@ import {BaseDirectory, type DirEntry, readDir, exists} from '@tauri-apps/plugin-
 import {join} from '@tauri-apps/api/path';
 import {open as openDialog} from '@tauri-apps/plugin-dialog';
 import {useDebouncedValue} from '@mantine/hooks';
+import {notifications} from '@mantine/notifications';
 import {FileManager} from '../components/FileManager.tsx';
 import type {GitIgnoreItem} from '../models/GitIgnoreItem.ts';
 import {DefinedTreeNode} from '../models/tree.ts';
@@ -53,11 +54,11 @@ const IndexComponent = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [debouncedCheckedItems] = useDebouncedValue(checkedItems, 1000);
 
+    const abortControllerRef = useRef<AbortController | null>(null);
     const workerRef = useRef<Worker | null>(null);
     const jobCounterRef = useRef(0);
     const pendingJobsRef = useRef(new Map<number, (result: FilterResult) => void>());
 
-    // We must pass the original rootPath to the worker for correct relative path calculation
     const filterEntriesWithWorker = (entries: WorkerEntry[], gitIgnoreItems: GitIgnoreItem[], rootPath: string): Promise<FilterResult> => {
         const id = jobCounterRef.current++;
         const worker = workerRef.current;
@@ -74,10 +75,17 @@ const IndexComponent = () => {
         });
     };
 
-    const buildFileTree = useCallback(async (currentPath: string, rootPath: string, gitIgnoreItems: GitIgnoreItem[]): Promise<{
+    const buildFileTree = useCallback(async (
+        currentPath: string,
+        rootPath: string,
+        gitIgnoreItems: GitIgnoreItem[],
+        signal: AbortSignal
+    ): Promise<{
         tree: DefinedTreeNode[],
         allFiles: { label: string; value: string }[]
     }> => {
+        if (signal.aborted) throw new DOMException('Aborted', 'AbortError');
+
         let entries: DirEntry[];
         try {
             entries = await readDir(currentPath);
@@ -85,6 +93,8 @@ const IndexComponent = () => {
             console.warn(`Failed to read directory ${currentPath}:`, e);
             return {tree: [], allFiles: []};
         }
+
+        if (signal.aborted) throw new DOMException('Aborted', 'AbortError');
 
         const workerEntries = await Promise.all(
             entries.map(async (entry) => ({
@@ -94,7 +104,8 @@ const IndexComponent = () => {
             }))
         );
 
-        // Pass the rootPath to filter correctly
+        if (signal.aborted) throw new DOMException('Aborted', 'AbortError');
+
         const {files: filteredFiles, dirs: filteredDirs} = await filterEntriesWithWorker(workerEntries, gitIgnoreItems, rootPath);
 
         const allFoundFiles: { label: string; value: string }[] = filteredFiles.map(f => ({
@@ -104,8 +115,8 @@ const IndexComponent = () => {
         const nodes: DefinedTreeNode[] = filteredFiles.map(f => ({label: f.name, value: f.path}));
 
         for (const dir of filteredDirs) {
-            // Recursive call propagates the original rootPath
-            const result = await buildFileTree(dir.path, rootPath, gitIgnoreItems);
+            if (signal.aborted) throw new DOMException('Aborted', 'AbortError');
+            const result = await buildFileTree(dir.path, rootPath, gitIgnoreItems, signal);
             const {tree: children, allFiles: childFiles} = result;
             if (children.length > 0) {
                 nodes.push({value: dir.path, label: dir.name, children});
@@ -123,7 +134,26 @@ const IndexComponent = () => {
         return {tree: nodes, allFiles: allFoundFiles};
     }, []);
 
+    const handleAbort = useCallback(() => {
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+            abortControllerRef.current = null;
+        }
+        setIsLoading(false);
+        notifications.show({
+            title: 'Cancelled',
+            message: 'Folder loading was aborted by user.',
+            color: 'yellow'
+        });
+    }, []);
+
     const loadDirectory = useCallback(async (selectedPath: string) => {
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+        }
+        const controller = new AbortController();
+        abortControllerRef.current = controller;
+
         setIsLoading(true);
         setPath(selectedPath);
         setTreeData([]);
@@ -132,7 +162,12 @@ const IndexComponent = () => {
 
         try {
             const gitIgnoreItems = await fetchGitIgnoreItems();
-            const {tree, allFiles} = await buildFileTree(selectedPath, selectedPath, gitIgnoreItems);
+            if (controller.signal.aborted) return;
+
+            const {tree, allFiles} = await buildFileTree(selectedPath, selectedPath, gitIgnoreItems, controller.signal);
+
+            if (controller.signal.aborted) return;
+
             setTreeData(tree);
             setAllFiles(allFiles);
 
@@ -144,9 +179,15 @@ const IndexComponent = () => {
             }
 
         } catch (e) {
+            if (e instanceof DOMException && e.name === 'AbortError') {
+                return;
+            }
             console.error('Failed to build file tree:', e);
         } finally {
-            setIsLoading(false);
+            if (abortControllerRef.current === controller) {
+                setIsLoading(false);
+                abortControllerRef.current = null;
+            }
         }
     }, [buildFileTree]);
 
@@ -176,6 +217,9 @@ const IndexComponent = () => {
         restoreLastSession();
 
         return () => {
+            if (abortControllerRef.current) {
+                abortControllerRef.current.abort();
+            }
             worker.terminate();
         };
     }, [loadDirectory]);
@@ -228,6 +272,7 @@ const IndexComponent = () => {
             isLoading={isLoading}
             path={path}
             setCheckedItems={setCheckedItems}
+            onAbort={handleAbort}
             onNodeToggle={handleNodeToggle}
             onReloadTree={handleReloadTree}
             onSelectFolder={handleSelectFolder}

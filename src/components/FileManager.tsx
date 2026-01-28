@@ -2,10 +2,13 @@ import {
     ActionIcon,
     Box,
     Button,
+    Center,
     Flex,
     Group,
-    LoadingOverlay,
+    Loader,
+    Overlay,
     Paper,
+    Stack,
     Tabs,
     Text,
     Tooltip,
@@ -46,6 +49,7 @@ interface FileManagerProps {
     isLoading: boolean;
     onSelectFolder: () => void;
     onReloadTree: () => void;
+    onAbort: () => void;
 }
 
 const generateTreeString = (nodes: DefinedTreeNode[], prefix = ''): string => {
@@ -87,7 +91,8 @@ export const FileManager = ({
                                 path,
                                 isLoading,
                                 onSelectFolder,
-                                onReloadTree
+                                onReloadTree,
+                                onAbort
                             }: FileManagerProps) => {
     const theme = useMantineTheme();
     const isMobile = useMediaQuery(`(max-width: ${theme.breakpoints.sm})`);
@@ -330,12 +335,19 @@ export const FileManager = ({
     return (
         <Flex direction="column" gap="md" h={{base: 'auto', lg: 'calc(100vh - 100px)'}}>
             <Box pos="relative">
-                <LoadingOverlay
-                    loaderProps={{children: <Text>Scanning directory...</Text>}}
-                    overlayProps={{radius: 'sm', blur: 2}}
-                    visible={isLoading}
-                    zIndex={1000}
-                />
+                {isLoading && (
+                    <Overlay backgroundOpacity={0.6} blur={2} color="var(--mantine-color-body)" zIndex={1000}>
+                        <Center h="100%">
+                            <Stack align="center" gap="sm" p="lg">
+                                <Loader size="lg"/>
+                                <Text fw={500}>Scanning directory...</Text>
+                                <Button color="red" size="xs" variant="light" onClick={onAbort}>
+                                    Abort Loading
+                                </Button>
+                            </Stack>
+                        </Center>
+                    </Overlay>
+                )}
                 <Flex
                     align={isMobile ? 'stretch' : 'center'}
                     direction={isMobile ? 'column' : 'row'}
@@ -426,7 +438,16 @@ export const FileManager = ({
 
                 <Flex direction={{base: 'column', md: 'row'}} gap="md"
                       style={{flex: 1, minWidth: 0, position: 'relative'}}>
-                    <LoadingOverlay overlayProps={{radius: 'sm', blur: 2}} visible={isProcessing}/>
+                    {isProcessing && (
+                        <Overlay backgroundOpacity={0.6} blur={2} color="var(--mantine-color-body)" zIndex={100}>
+                            <Center h="100%">
+                                <Stack align="center" gap="xs">
+                                    <Loader size="sm"/>
+                                    <Text c="dimmed" size="xs">Processing files...</Text>
+                                </Stack>
+                            </Center>
+                        </Overlay>
+                    )}
                     <Box
                         h={{base: 'auto', md: '100%'}}
                         miw={{md: isPreviewVisible ? 400 : undefined}}
