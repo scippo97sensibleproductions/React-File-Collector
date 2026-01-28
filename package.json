@@ -1,7 +1,7 @@
 {
   "name": "file-collector-react",
   "private": true,
-  "version": "1.0.9",
+  "version": "1.0.10",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -64,3 +64,4 @@
     "vite-plugin-image-optimizer": "^1.1.9"
   }
 }
+
