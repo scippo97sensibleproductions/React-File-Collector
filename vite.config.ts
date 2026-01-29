@@ -7,6 +7,9 @@ import compression from 'vite-plugin-compression';
 
 // https://vite.dev/config/
 export default defineConfig({
+    server: {
+        port: 1420,
+    },
     base: './',
     plugins: [
         inspectAttr(),

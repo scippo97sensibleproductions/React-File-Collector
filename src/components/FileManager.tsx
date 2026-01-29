@@ -33,6 +33,7 @@ import type {SystemPromptItem} from "../models/SystemPromptItem.ts";
 import {DefinedTreeNode} from "../models/tree.ts";
 import FileProcessorWorker from '../workers/fileProcessor.worker.ts?worker';
 import {MultiFileSearch} from "./MultiFileSearch.tsx";
+import {LoadingScreen} from "./LoadingScreen.tsx";
 
 const PROMPTS_PATH = import.meta.env.VITE_SYSTEM_PROMPTS_PATH ?? 'FileCollector/system_prompts.json';
 const parsedBaseDir = parseInt(import.meta.env.VITE_FILE_BASE_PATH ?? '', 10);
@@ -334,20 +335,9 @@ export const FileManager = ({
 
     return (
         <Flex direction="column" gap="md" h={{base: 'auto', lg: 'calc(100vh - 100px)'}}>
+            <LoadingScreen message="Scanning directory..." visible={isLoading} onAbort={onAbort} />
+
             <Box pos="relative">
-                {isLoading && (
-                    <Overlay backgroundOpacity={0.6} blur={2} color="var(--mantine-color-body)" zIndex={1000}>
-                        <Center h="100%">
-                            <Stack align="center" gap="sm" p="lg">
-                                <Loader size="lg"/>
-                                <Text fw={500}>Scanning directory...</Text>
-                                <Button color="red" size="xs" variant="light" onClick={onAbort}>
-                                    Abort Loading
-                                </Button>
-                            </Stack>
-                        </Center>
-                    </Overlay>
-                )}
                 <Flex
                     align={isMobile ? 'stretch' : 'center'}
                     direction={isMobile ? 'column' : 'row'}
