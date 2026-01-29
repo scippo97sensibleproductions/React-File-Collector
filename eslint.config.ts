@@ -62,6 +62,7 @@ export default defineConfig([
             "**/node_modules/",
             "**/src-tauri/",
             "postcss.config.cjs",
+            "**/scripts/*"
         ],
     },
     js.configs.recommended,
