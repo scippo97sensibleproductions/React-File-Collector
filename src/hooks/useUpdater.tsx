@@ -10,12 +10,19 @@ interface UpdateInfo {
     date?: string;
 }
 
+interface UpdateProgress {
+    downloaded: number;
+    total: number;
+}
+
 type UpdateStatus = 'idle' | 'checking' | 'downloading' | 'installing' | 'error';
 
 interface UpdaterContextType {
     status: UpdateStatus;
     updateInfo: UpdateInfo | null;
     isModalOpen: boolean;
+    error: string | null;
+    progress: UpdateProgress;
     checkUpdate: (silent?: boolean) => Promise<void>;
     startInstall: () => Promise<void>;
     closeModal: () => void;
@@ -27,6 +34,8 @@ const IGNORED_VERSION_KEY = 'file-collector-ignored-update';
 
 export const UpdaterProvider = ({ children }: { children: ReactNode }) => {
     const [status, setStatus] = useState<UpdateStatus>('idle');
+    const [error, setError] = useState<string | null>(null);
+    const [progress, setProgress] = useState<UpdateProgress>({ downloaded: 0, total: 0 });
     const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [rawUpdate, setRawUpdate] = useState<Update | null>(null);
@@ -35,6 +44,8 @@ export const UpdaterProvider = ({ children }: { children: ReactNode }) => {
         if (status === 'downloading' || status === 'installing') return;
 
         setStatus('checking');
+        setError(null);
+
         try {
             const update = await check();
 
@@ -51,9 +62,6 @@ export const UpdaterProvider = ({ children }: { children: ReactNode }) => {
 
                 const ignoredVersion = localStorage.getItem(IGNORED_VERSION_KEY);
 
-                // Show modal if:
-                // 1. It's a manual check (!silent), OR
-                // 2. The version hasn't been ignored by the user
                 if (!silent || update.version !== ignoredVersion) {
                     setIsModalOpen(true);
                 }
@@ -64,8 +72,10 @@ export const UpdaterProvider = ({ children }: { children: ReactNode }) => {
                     color: 'blue',
                 });
             }
-        } catch (error) {
-            console.error('Failed to check for updates:', error);
+        } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            console.error('Failed to check for updates:', err);
+            setError(msg);
             if (!silent) {
                 notifications.show({
                     title: 'Update Check Failed',
@@ -75,29 +85,45 @@ export const UpdaterProvider = ({ children }: { children: ReactNode }) => {
             }
             setStatus('error');
         } finally {
-            setStatus('idle');
+            if (status !== 'error') {
+                setStatus('idle');
+            }
         }
     }, [status]);
 
     const startInstall = useCallback(async () => {
         if (!rawUpdate) return;
 
+        setStatus('downloading');
+        setError(null);
+        setProgress({ downloaded: 0, total: 0 });
+
         try {
-            setStatus('downloading');
-            // Provide a dummy callback if one is required by the specific version of the plugin,
-            // or rely on the promise resolution.
+            let downloadedBytes = 0;
+            let totalBytes = 0;
+
             await rawUpdate.downloadAndInstall((event) => {
-                if (event.event === 'Started') {
-                    setStatus('downloading');
-                } else if (event.event === 'Finished') {
-                    setStatus('installing');
+                switch (event.event) {
+                    case 'Started':
+                        totalBytes = event.data.contentLength ?? 0;
+                        setProgress({ downloaded: 0, total: totalBytes });
+                        break;
+                    case 'Progress':
+                        downloadedBytes += event.data.chunkLength;
+                        setProgress({ downloaded: downloadedBytes, total: totalBytes });
+                        break;
+                    case 'Finished':
+                        setStatus('installing');
+                        break;
                 }
             });
 
             setStatus('installing');
             await relaunch();
-        } catch (error) {
-            console.error('Failed to install update:', error);
+        } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            console.error('Failed to install update:', err);
+            setError(msg);
             setStatus('error');
             notifications.show({
                 title: 'Update Failed',
@@ -105,14 +131,15 @@ export const UpdaterProvider = ({ children }: { children: ReactNode }) => {
                 color: 'red',
             });
         } finally {
-            setStatus('idle');
+            if (status !== 'installing') {
+                setStatus('idle');
+            }
         }
-    }, [rawUpdate]);
+    }, [rawUpdate, status]);
 
     const closeModal = useCallback(() => {
         setIsModalOpen(false);
         if (updateInfo?.version) {
-            // Persist the dismissal: User explicitly closed the modal, so we ignore this version in the future.
             localStorage.setItem(IGNORED_VERSION_KEY, updateInfo.version);
         }
     }, [updateInfo]);
@@ -123,6 +150,8 @@ export const UpdaterProvider = ({ children }: { children: ReactNode }) => {
                 status,
                 updateInfo,
                 isModalOpen,
+                error,
+                progress,
                 checkUpdate,
                 startInstall,
                 closeModal,
