@@ -1,136 +1,142 @@
-import {createContext, useContext, useState} from 'react';
-import {check, type Update} from '@tauri-apps/plugin-updater';
-import {relaunch} from '@tauri-apps/plugin-process';
-import {showNotification} from '@mantine/notifications';
-import {isTauri} from '@tauri-apps/api/core';
+import { createContext, useCallback, useContext, useState, type ReactNode } from 'react';
+import { check, type Update } from '@tauri-apps/plugin-updater';
+import { relaunch } from '@tauri-apps/plugin-process';
+import { notifications } from '@mantine/notifications';
 
-export type UpdateStatus =
-    | 'idle'
-    | 'checking'
-    | 'found'
-    | 'not-found'
-    | 'downloading'
-    | 'installing'
-    | 'error';
-
-interface DownloadProgress {
-    downloaded: number;
-    total: number | null;
+interface UpdateInfo {
+    version: string;
+    currentVersion: string;
+    body?: string;
+    date?: string;
 }
 
-interface UpdaterState {
+type UpdateStatus = 'idle' | 'checking' | 'downloading' | 'installing' | 'error';
+
+interface UpdaterContextType {
     status: UpdateStatus;
-    error: string | null;
-    progress: DownloadProgress;
-    updateInfo: Update | null;
+    updateInfo: UpdateInfo | null;
     isModalOpen: boolean;
-    checkUpdate: (isManual?: boolean) => Promise<void>;
+    checkUpdate: (silent?: boolean) => Promise<void>;
     startInstall: () => Promise<void>;
     closeModal: () => void;
 }
 
-const UpdaterContext = createContext<UpdaterState | undefined>(undefined);
+const UpdaterContext = createContext<UpdaterContextType | null>(null);
 
-export const useUpdater = (): UpdaterState => {
+const IGNORED_VERSION_KEY = 'file-collector-ignored-update';
+
+export const UpdaterProvider = ({ children }: { children: ReactNode }) => {
+    const [status, setStatus] = useState<UpdateStatus>('idle');
+    const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [rawUpdate, setRawUpdate] = useState<Update | null>(null);
+
+    const checkUpdate = useCallback(async (silent: boolean = false) => {
+        if (status === 'downloading' || status === 'installing') return;
+
+        setStatus('checking');
+        try {
+            const update = await check();
+
+            if (update && update.available) {
+                const info: UpdateInfo = {
+                    version: update.version,
+                    currentVersion: update.currentVersion,
+                    body: update.body,
+                    date: update.date,
+                };
+
+                setRawUpdate(update);
+                setUpdateInfo(info);
+
+                const ignoredVersion = localStorage.getItem(IGNORED_VERSION_KEY);
+
+                // Show modal if:
+                // 1. It's a manual check (!silent), OR
+                // 2. The version hasn't been ignored by the user
+                if (!silent || update.version !== ignoredVersion) {
+                    setIsModalOpen(true);
+                }
+            } else if (!silent) {
+                notifications.show({
+                    title: 'Up to date',
+                    message: 'You are running the latest version.',
+                    color: 'blue',
+                });
+            }
+        } catch (error) {
+            console.error('Failed to check for updates:', error);
+            if (!silent) {
+                notifications.show({
+                    title: 'Update Check Failed',
+                    message: 'Could not check for updates.',
+                    color: 'red',
+                });
+            }
+            setStatus('error');
+        } finally {
+            setStatus('idle');
+        }
+    }, [status]);
+
+    const startInstall = useCallback(async () => {
+        if (!rawUpdate) return;
+
+        try {
+            setStatus('downloading');
+            // Provide a dummy callback if one is required by the specific version of the plugin,
+            // or rely on the promise resolution.
+            await rawUpdate.downloadAndInstall((event) => {
+                if (event.event === 'Started') {
+                    setStatus('downloading');
+                } else if (event.event === 'Finished') {
+                    setStatus('installing');
+                }
+            });
+
+            setStatus('installing');
+            await relaunch();
+        } catch (error) {
+            console.error('Failed to install update:', error);
+            setStatus('error');
+            notifications.show({
+                title: 'Update Failed',
+                message: 'Failed to download or install the update.',
+                color: 'red',
+            });
+        } finally {
+            setStatus('idle');
+        }
+    }, [rawUpdate]);
+
+    const closeModal = useCallback(() => {
+        setIsModalOpen(false);
+        if (updateInfo?.version) {
+            // Persist the dismissal: User explicitly closed the modal, so we ignore this version in the future.
+            localStorage.setItem(IGNORED_VERSION_KEY, updateInfo.version);
+        }
+    }, [updateInfo]);
+
+    return (
+        <UpdaterContext.Provider
+            value={{
+                status,
+                updateInfo,
+                isModalOpen,
+                checkUpdate,
+                startInstall,
+                closeModal,
+            }}
+        >
+            {children}
+        </UpdaterContext.Provider>
+    );
+}
+
+export function useUpdater() {
     const context = useContext(UpdaterContext);
     if (!context) {
         throw new Error('useUpdater must be used within an UpdaterProvider');
     }
     return context;
-};
-
-export const UpdaterProvider = ({children}: { children: React.ReactNode }) => {
-    const [status, setStatus] = useState<UpdateStatus>('idle');
-    const [error, setError] = useState<string | null>(null);
-    const [progress, setProgress] = useState<DownloadProgress>({downloaded: 0, total: null});
-    const [updateInfo, setUpdateInfo] = useState<Update | null>(null);
-    const [isModalOpen, setIsModalOpen] = useState(false);
-
-    const checkUpdate = async (isManual = false) => {
-        if (!isTauri()) {
-            if (isManual) {
-                showNotification({
-                    title: 'Update Check Unavailable',
-                    message: 'Updates can only be checked in the desktop app.',
-                    color: 'yellow'
-                });
-            }
-            return;
-        }
-
-        setStatus('checking');
-        setError(null);
-        try {
-            const update = await check();
-            if (update) {
-                setUpdateInfo(update);
-                setStatus('found');
-                setIsModalOpen(true);
-            } else {
-                setStatus('not-found');
-                if (isManual) {
-                    showNotification({
-                        title: 'No Updates Available',
-                        message: 'You are already running the latest version.',
-                        color: 'green',
-                    });
-                }
-            }
-        } catch (e) {
-            const errorMessage = e instanceof Error ? e.message : String(e);
-            setError(`Failed to check for updates: ${errorMessage}`);
-            setStatus('error');
-            if (isManual) {
-                showNotification({
-                    title: 'Update Check Failed',
-                    message: errorMessage,
-                    color: 'red',
-                });
-            }
-        }
-    };
-
-    const startInstall = async () => {
-        if (!updateInfo) return;
-
-        setStatus('downloading');
-        try {
-            await updateInfo.downloadAndInstall((event) => {
-                switch (event.event) {
-                    case 'Started':
-                        setProgress({downloaded: 0, total: event.data.contentLength ?? null});
-                        break;
-                    case 'Progress':
-                        setProgress((p) => ({...p, downloaded: p.downloaded + event.data.chunkLength}));
-                        break;
-                    case 'Finished':
-                        setStatus('installing');
-                        break;
-                }
-            });
-            await relaunch();
-        } catch (e) {
-            const errorMessage = e instanceof Error ? e.message : String(e);
-            setError(`Failed to install update: ${errorMessage}`);
-            setStatus('error');
-            showNotification({
-                title: 'Update Installation Failed',
-                message: errorMessage,
-                color: 'red',
-            });
-        }
-    };
-
-    const value: UpdaterState = {
-        status,
-        error,
-        progress,
-        updateInfo,
-        isModalOpen,
-        checkUpdate,
-        startInstall,
-        closeModal: () => setIsModalOpen(false),
-    };
-
-    return <UpdaterContext.Provider value={value}>{children}</UpdaterContext.Provider>;
-};
+}
