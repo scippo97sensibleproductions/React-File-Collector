@@ -15,7 +15,8 @@
       {
         "title": "File Collector",
         "width": 1024,
-        "height": 768
+        "height": 768,
+        "decorations": false
       }
     ],
     "security": {
