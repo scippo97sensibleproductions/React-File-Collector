@@ -57,6 +57,7 @@ export const TitleBar = () => {
                 position: 'fixed',
                 top: 0,
                 left: 0,
+                right: 0,
                 zIndex: 9999,
                 backgroundColor: bgColor,
                 borderBottom: `1px solid ${borderColor}`,
@@ -65,10 +66,8 @@ export const TitleBar = () => {
                 justifyContent: 'space-between',
                 userSelect: 'none',
             }}
-            w="100%"
         >
             <Group gap="xs" px="xs" style={{ pointerEvents: 'none' }}>
-                {/* Changed to IconFileText for semantic clarity, reserving IconCopy for Restore */}
                 <IconFileText color={iconColor} size={14} />
                 <Text c="dimmed" fw={500} size="xs">
                     File Collector
@@ -102,7 +101,6 @@ export const TitleBar = () => {
                     onClick={handleMaximize}
                 >
                     {isMaximized ? (
-                        // IconCopy serves as a visual proxy for "Restore Down" (overlapping windows)
                         <IconCopy size={14} stroke={1.5} />
                     ) : (
                         <IconSquare size={14} stroke={1.5} />

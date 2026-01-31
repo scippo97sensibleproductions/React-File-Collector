@@ -77,12 +77,31 @@ const RootLayout = () => {
         <>
             <TitleBar />
             <UpdatePromptModal />
-            <Box pt={30}>
+            <Box>
                 <AppShell
                     header={{ height: 60 }}
                     layout="alt"
                     navbar={{ width: 200, breakpoint: 'sm', collapsed: { mobile: !opened } }}
                     padding="md"
+                    styles={{
+                        root: {
+                            height: '100vh',
+                            overflow: 'hidden',
+                        },
+                        navbar: {
+                            top: 30,
+                            height: 'calc(100vh - 30px)',
+                        },
+                        header: {
+                            top: 30,
+                        },
+                        main: {
+                            paddingTop: 'calc(var(--app-shell-header-height) + 30px)',
+                            paddingBottom: 0,
+                            height: '100vh',
+                            overflow: 'hidden'
+                        }
+                    }}
                 >
                     <AppShell.Header>
                         <Group h="100%" px="md">
